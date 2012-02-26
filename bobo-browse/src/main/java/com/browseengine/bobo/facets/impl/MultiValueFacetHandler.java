@@ -4,10 +4,7 @@ import it.unimi.dsi.fastutil.floats.FloatArrayList;
 import it.unimi.dsi.fastutil.floats.FloatList;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.index.Term;
@@ -180,7 +177,7 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
   public RandomAccessFilter buildRandomAccessFilter(String value, Properties prop) throws IOException
   {
 	MultiValueFacetFilter f= new MultiValueFacetFilter(new MultiDataCacheBuilder(getName()), value);
-    AdaptiveFacetFilter af = new AdaptiveFacetFilter(new SimpleDataCacheBuilder(getName()), f, new String[]{value}, false);
+    AdaptiveFacetFilter af = new AdaptiveFacetFilter(getName(), new SimpleDataCacheBuilder(getName()), f, Arrays.asList(value), false);
     return af;
   }
 
@@ -214,7 +211,7 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
     {
       MultiValueORFacetFilter f = new MultiValueORFacetFilter(this,vals,false);			// catch the "not" case later
       if (!isNot) {
-	      AdaptiveFacetFilter af = new AdaptiveFacetFilter(new SimpleDataCacheBuilder(getName()), f, vals, false);
+	      AdaptiveFacetFilter af = new AdaptiveFacetFilter(getName(), new SimpleDataCacheBuilder(getName()), f, Arrays.asList(vals), false);
 	      return af;
       }
       else{

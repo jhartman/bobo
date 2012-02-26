@@ -1,12 +1,9 @@
 package com.browseengine.bobo.facets.impl;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 
+import com.browseengine.bobo.facets.range.SimpleDataCacheBuilder;
 import org.apache.log4j.Logger;
 import org.apache.lucene.search.Explanation;
 
@@ -25,7 +22,6 @@ import com.browseengine.bobo.facets.filter.FacetOrFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessNotFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessOrFilter;
-import com.browseengine.bobo.facets.filter.AdaptiveFacetFilter.FacetDataCacheBuilder;
 import com.browseengine.bobo.query.scoring.BoboDocScorer;
 import com.browseengine.bobo.query.scoring.FacetScoreable;
 import com.browseengine.bobo.query.scoring.FacetTermScoringFunctionFactory;
@@ -104,19 +100,7 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
   public RandomAccessFilter buildRandomAccessFilter(String value, Properties prop) throws IOException
   {
     FacetFilter f = new FacetFilter(this, value);
-    AdaptiveFacetFilter af = new AdaptiveFacetFilter(new FacetDataCacheBuilder(){
-
-		@Override
-		public FacetDataCache build(BoboIndexReader reader) {
-			return  getFacetData(reader);
-		}
-
-		@Override
-		public String getName() {
-			return _indexFieldName;
-		}
-    	
-    }, f, new String[]{value}, false);
+    AdaptiveFacetFilter af = new AdaptiveFacetFilter(_indexFieldName, new SimpleDataCacheBuilder(_name), f, Arrays.asList(value), false);
     return af;
   }
 
@@ -141,19 +125,7 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
     if(vals.length > 1)
     {
       RandomAccessFilter f = new FacetOrFilter(this,vals,false);
-      filter = new AdaptiveFacetFilter(new FacetDataCacheBuilder(){
-
-  		@Override
-  		public FacetDataCache build(BoboIndexReader reader) {
-  			return  getFacetData(reader);
-  		}
-
-  		@Override
-  		public String getName() {
-  			return _indexFieldName;
-  		}
-      	
-      }, f, vals, isNot);
+      filter = new AdaptiveFacetFilter(_indexFieldName, new SimpleDataCacheBuilder(_name), f, Arrays.asList(vals), isNot);
     }
     else if(vals.length == 1)
     {

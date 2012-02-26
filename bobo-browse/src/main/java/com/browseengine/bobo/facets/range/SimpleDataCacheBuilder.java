@@ -2,18 +2,17 @@ package com.browseengine.bobo.facets.range;
 
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.facets.filter.AdaptiveFacetFilter.FacetDataCacheBuilder;
+import com.browseengine.bobo.facets.filter.Function;
 
-public class SimpleDataCacheBuilder implements FacetDataCacheBuilder{
-  private String name;
-  public SimpleDataCacheBuilder( String name) {      
-    this.name = name;
-    
-  }
-  public FacetDataCache build(BoboIndexReader reader) {
-    return (FacetDataCache) reader.getFacetData(name);
-  }
-  public String getName() {
-    return name;
-  }   
+public class SimpleDataCacheBuilder implements Function<BoboIndexReader, FacetDataCache<?>> {
+    public SimpleDataCacheBuilder(String name) {
+        this.name = name;
+    }
+
+    private final String name;
+
+    @Override
+    public FacetDataCache<?> apply(BoboIndexReader arg) {
+        return (FacetDataCache<?>) arg.getFacetData(name);
+    }
 }

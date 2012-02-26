@@ -31,7 +31,7 @@ public class MultiValueFacetFilter extends RandomAccessFilter
     public double getFacetSelectivity(BoboIndexReader reader)
     {
       double selectivity = 0;
-      MultiValueFacetDataCache dataCache = multiDataCacheBuilder.build(reader);
+      MultiValueFacetDataCache dataCache = multiDataCacheBuilder.apply(reader);
       int idx = dataCache.valArray.indexOf(_val);
       if(idx<0)
       {
@@ -73,7 +73,7 @@ public class MultiValueFacetFilter extends RandomAccessFilter
 
     @Override
     public RandomAccessDocIdSet getRandomAccessDocIdSet(BoboIndexReader reader) throws IOException {    	
-      final MultiValueFacetDataCache dataCache = multiDataCacheBuilder.build(reader);  
+      final MultiValueFacetDataCache dataCache = multiDataCacheBuilder.apply(reader);
       final int index = dataCache.valArray.indexOf(_val);
         final BigNestedIntArray nestedArray = dataCache._nestedArray; 
         if(index < 0)

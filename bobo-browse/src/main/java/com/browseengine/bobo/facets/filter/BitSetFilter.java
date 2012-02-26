@@ -10,19 +10,20 @@ import com.browseengine.bobo.docidset.EmptyDocIdSet;
 import com.browseengine.bobo.docidset.RandomAccessDocIdSet;
 import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.MultiValueFacetDataCache;
-import com.browseengine.bobo.facets.filter.AdaptiveFacetFilter.FacetDataCacheBuilder;
 import com.browseengine.bobo.facets.range.BitSetBuilder;
 
 public class BitSetFilter extends RandomAccessFilter {  
     private static final long serialVersionUID = 1L;
     
-    protected final FacetDataCacheBuilder facetDataCacheBuilder;
+    protected final String facetName;
+    protected final Function<BoboIndexReader, FacetDataCache<?>> facetDataCacheBuilder;
     protected final BitSetBuilder bitSetBuilder;
     private volatile OpenBitSet bitSet;
     private volatile FacetDataCache lastCache;
     
-    public BitSetFilter(BitSetBuilder bitSetBuilder, FacetDataCacheBuilder facetDataCacheBuilder) {
-      this.bitSetBuilder = bitSetBuilder;    
+    public BitSetFilter(BitSetBuilder bitSetBuilder, String facetName, Function<BoboIndexReader, FacetDataCache<?>> facetDataCacheBuilder) {
+      this.bitSetBuilder = bitSetBuilder;
+      this.facetName = facetName;
       this.facetDataCacheBuilder = facetDataCacheBuilder;      
     }
     public OpenBitSet getBitSet( FacetDataCache dataCache) {
@@ -37,7 +38,7 @@ public class BitSetFilter extends RandomAccessFilter {
     
     @Override
     public RandomAccessDocIdSet getRandomAccessDocIdSet(final BoboIndexReader reader) throws IOException {
-      final FacetDataCache dataCache = facetDataCacheBuilder.build(reader);
+      final FacetDataCache dataCache = facetDataCacheBuilder.apply(reader);
       final OpenBitSet openBitSet = getBitSet(dataCache);
       long count = openBitSet.cardinality();
       if (count == 0) {
@@ -69,7 +70,7 @@ public class BitSetFilter extends RandomAccessFilter {
 
     @Override
     public double getFacetSelectivity(BoboIndexReader reader) {
-      FacetDataCache dataCache = facetDataCacheBuilder.build(reader);
+      FacetDataCache dataCache = facetDataCacheBuilder.apply(reader);
       final OpenBitSet openBitSet = getBitSet(dataCache);
       int[] frequencies = dataCache.freqs;
       double selectivity = 0;

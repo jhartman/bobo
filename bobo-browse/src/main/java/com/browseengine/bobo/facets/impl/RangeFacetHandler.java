@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import com.browseengine.bobo.facets.filter.*;
 import org.apache.log4j.Logger;
 import org.apache.lucene.search.Explanation;
 
@@ -16,11 +17,7 @@ import com.browseengine.bobo.facets.FacetCountCollectorSource;
 import com.browseengine.bobo.facets.FacetHandler;
 import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.TermListFactory;
-import com.browseengine.bobo.facets.filter.BitSetFilter;
-import com.browseengine.bobo.facets.filter.FacetRangeFilter;
 import com.browseengine.bobo.facets.filter.FacetRangeFilter.FacetRangeValueConverter;
-import com.browseengine.bobo.facets.filter.RandomAccessFilter;
-import com.browseengine.bobo.facets.filter.RandomAccessNotFilter;
 import com.browseengine.bobo.facets.range.SimpleDataCacheBuilder;
 import com.browseengine.bobo.facets.range.ValueConverterBitSetBuilder;
 import com.browseengine.bobo.query.scoring.BoboDocScorer;
@@ -41,10 +38,6 @@ public class RangeFacetHandler extends FacetHandler<FacetDataCache> implements F
 		_termListFactory = termListFactory;
 		_predefinedRanges = predefinedRanges;
 	}
-	
-	
-	
-	
 
 	public RangeFacetHandler(String name,TermListFactory termListFactory,List<String> predefinedRanges)
     {
@@ -91,34 +84,42 @@ public class RangeFacetHandler extends FacetHandler<FacetDataCache> implements F
     return new String[0];
 	}
 
-	
-	
-	
-	
+
   @Override
   public RandomAccessFilter buildRandomAccessFilter(String value, Properties prop) throws IOException
   {
-      return new FacetRangeFilter(this,value);
+      FacetRangeFilter facetRangeFilter = new FacetRangeFilter(this, value);
+      return new AdaptiveRangeFacetFilter(_indexFieldName, new Function<BoboIndexReader, FacetDataCache<?>>() {
+          @Override
+          public FacetDataCache<?> apply(BoboIndexReader indexReader) {
+            return getFacetData(indexReader);
+          }
+      }, facetRangeFilter, value, false);
   }
   
-	
-  
-
   @Override
   public RandomAccessFilter buildRandomAccessOrFilter(String[] vals,Properties prop,boolean isNot) throws IOException
   {
     if (vals.length > 1)
     {
-      return new BitSetFilter(new ValueConverterBitSetBuilder(FacetRangeValueConverter.instance, vals, isNot), new SimpleDataCacheBuilder(getName()));
+      return new BitSetFilter(new ValueConverterBitSetBuilder(FacetRangeValueConverter.instance, vals, isNot), getName(), new SimpleDataCacheBuilder(getName()));
     }
     else
     {
-      RandomAccessFilter filter = buildRandomAccessFilter(vals[0],prop);
-      if (filter == null) return filter;
+      RandomAccessFilter innerFilter = buildRandomAccessFilter(vals[0],prop);
+
+      RandomAccessFilter filter = new AdaptiveRangeFacetFilter(_indexFieldName, new Function<BoboIndexReader, FacetDataCache<?>>() {
+          @Override
+          public FacetDataCache<?> apply(BoboIndexReader indexReader) {
+              return getFacetData(indexReader);
+          }
+      }, innerFilter, vals[0], isNot);
+
       if (isNot)
       {
         filter = new RandomAccessNotFilter(filter);
       }
+
       return filter;
     }
   }

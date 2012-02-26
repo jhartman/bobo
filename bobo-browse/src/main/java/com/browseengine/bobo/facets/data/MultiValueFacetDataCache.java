@@ -3,6 +3,7 @@
  */
 package com.browseengine.bobo.facets.data;
 
+import com.browseengine.bobo.facets.filter.Function;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.io.IOException;
@@ -18,7 +19,6 @@ import org.apache.lucene.util.OpenBitSet;
 
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.BoboIndexReader.WorkArea;
-import com.browseengine.bobo.facets.range.MultiDataCacheBuilder;
 import com.browseengine.bobo.sort.DocComparator;
 import com.browseengine.bobo.sort.DocComparatorSource;
 import com.browseengine.bobo.util.BigIntBuffer;
@@ -438,8 +438,8 @@ public class MultiValueFacetDataCache<T> extends FacetDataCache<T>
   }
     
 	public final static class MultiFacetDocComparatorSource extends DocComparatorSource{
-		private MultiDataCacheBuilder cacheBuilder;
-		public MultiFacetDocComparatorSource(MultiDataCacheBuilder multiDataCacheBuilder){
+		private final Function<BoboIndexReader, MultiValueFacetDataCache<?>> cacheBuilder;
+		public MultiFacetDocComparatorSource(Function<BoboIndexReader, MultiValueFacetDataCache<?>> multiDataCacheBuilder){
 		  cacheBuilder = multiDataCacheBuilder;
 		}
 		
@@ -448,7 +448,7 @@ public class MultiValueFacetDataCache<T> extends FacetDataCache<T>
 				throws IOException {
 			if (!(reader instanceof BoboIndexReader)) throw new IllegalStateException("reader must be instance of "+BoboIndexReader.class);
 			BoboIndexReader boboReader = (BoboIndexReader)reader;
-			final MultiValueFacetDataCache dataCache = cacheBuilder.build(boboReader);
+			final MultiValueFacetDataCache dataCache = cacheBuilder.apply(boboReader);
 			return new DocComparator(){
 				
 				@Override
