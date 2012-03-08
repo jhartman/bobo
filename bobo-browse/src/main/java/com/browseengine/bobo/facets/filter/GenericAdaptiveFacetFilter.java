@@ -57,7 +57,8 @@ public class GenericAdaptiveFacetFilter extends RandomAccessFilter {
                 int freqCount = 0;
                 for(String term : terms) {
                     int idx = facetDataCache.valArray.indexOf(term);
-                    freqCount += facetDataCache.freqs[idx];
+                    if(idx >= 0)
+                      freqCount += facetDataCache.freqs[idx];
                 }
                 return freqCount; 
             }
