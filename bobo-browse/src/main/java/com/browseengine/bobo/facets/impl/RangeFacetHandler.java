@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.log4j.Logger;
 import org.apache.lucene.search.Explanation;
 
@@ -14,7 +15,7 @@ import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.FacetCountCollector;
 import com.browseengine.bobo.facets.FacetCountCollectorSource;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.TermListFactory;
 import com.browseengine.bobo.facets.filter.BitSetFilter;
 import com.browseengine.bobo.facets.filter.FacetRangeFilter;
@@ -77,7 +78,7 @@ public class RangeFacetHandler extends FacetHandler<FacetDataCache> implements F
 	public String[] getFieldValues(BoboIndexReader reader,int id) {
 		FacetDataCache dataCache = getFacetData(reader);
 		if (dataCache!=null){
-		  return new String[]{dataCache.valArray.get(dataCache.orderArray.get(id))};
+		  return new String[]{dataCache.getString(dataCache.getOrderArrayValue(id))};
 		}
 		return new String[0];
 	}
@@ -86,7 +87,7 @@ public class RangeFacetHandler extends FacetHandler<FacetDataCache> implements F
 	public Object[] getRawFieldValues(BoboIndexReader reader,int id){
 		FacetDataCache dataCache = getFacetData(reader);
 		if (dataCache!=null){
-		  return new Object[]{dataCache.valArray.getRawValue(dataCache.orderArray.get(id))};
+		  return new Object[]{dataCache.getRawValue(dataCache.getOrderArrayValue(id))};
 		}
     return new String[0];
 	}
@@ -144,8 +145,7 @@ public class RangeFacetHandler extends FacetHandler<FacetDataCache> implements F
 
 	@Override
 	public FacetDataCache load(BoboIndexReader reader) throws IOException {
-	    FacetDataCache dataCache = new FacetDataCache();
-		dataCache.load(_indexFieldName, reader, _termListFactory);
+	    FacetDataCache dataCache = FacetDataCache.load(_indexFieldName, reader, _termListFactory);
 		return dataCache;
 	}
 
@@ -154,7 +154,7 @@ public class RangeFacetHandler extends FacetHandler<FacetDataCache> implements F
 			FacetTermScoringFunctionFactory scoringFunctionFactory,
 			Map<String, Float> boostMap) {
 		FacetDataCache dataCache = getFacetData(reader);
-		float[] boostList = BoboDocScorer.buildBoostList(dataCache.valArray, boostMap);
+		float[] boostList = BoboDocScorer.buildBoostList(dataCache, boostMap);
 		return new RangeBoboDocScorer(dataCache,scoringFunctionFactory,boostList);
 	}	
 	
@@ -162,20 +162,20 @@ public class RangeFacetHandler extends FacetHandler<FacetDataCache> implements F
 		private final FacetDataCache _dataCache;
 		
 		public RangeBoboDocScorer(FacetDataCache dataCache,FacetTermScoringFunctionFactory scoreFunctionFactory,float[] boostList){
-			super(scoreFunctionFactory.getFacetTermScoringFunction(dataCache.valArray.size(), dataCache.orderArray.size()),boostList);
+			super(scoreFunctionFactory.getFacetTermScoringFunction(dataCache.getValArraySize(), dataCache.getOrderArraySize()),boostList);
 			_dataCache = dataCache;
 		}
 		
 		@Override
 		public Explanation explain(int doc){
-			int idx = _dataCache.orderArray.get(doc);
-			return _function.explain(_dataCache.freqs[idx],_boostList[idx]);
+			int idx = _dataCache.getOrderArrayValue(doc);
+			return _function.explain(_dataCache.getFreq(idx),_boostList[idx]);
 		}
 
 		@Override
 		public final float score(int docid) {
-			int idx = _dataCache.orderArray.get(docid);
-			return _function.score(_dataCache.freqs[idx],_boostList[idx]);
+			int idx = _dataCache.getOrderArrayValue(docid);
+			return _function.score(_dataCache.getFreq(idx),_boostList[idx]);
 		}
 	}
 }

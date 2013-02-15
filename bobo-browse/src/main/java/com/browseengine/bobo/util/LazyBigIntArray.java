@@ -32,6 +32,12 @@ public class LazyBigIntArray extends BigSegmentedArray implements Serializable
     _array = new int[_numrows][];
   }
 
+  protected LazyBigIntArray(int size, int fillValue, int[][] array) {
+      super(size);
+      _fillValue = fillValue;
+      _array = array;
+  }
+
   /* (non-Javadoc)
    * @see com.browseengine.bobo.util.BigSegmentedArray#getBlockSize()
    */
@@ -256,5 +262,9 @@ public class LazyBigIntArray extends BigSegmentedArray implements Serializable
       }
     }
     return DocIdSetIterator.NO_MORE_DOCS;
+  }
+
+  public LazyBigIntArray copy() {
+      return new LazyBigIntArray(_size, _fillValue, _array);
   }
 }

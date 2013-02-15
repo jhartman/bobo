@@ -1,8 +1,9 @@
 package com.browseengine.bobo.facets.range;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.lucene.util.OpenBitSet;
 
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.filter.FacetValueConverter;
 
 public class ValueConverterBitSetBuilder implements BitSetBuilder {
@@ -20,7 +21,7 @@ public class ValueConverterBitSetBuilder implements BitSetBuilder {
   public OpenBitSet bitSet(FacetDataCache dataCache) {
     int[] index = facetValueConverter.convert(dataCache, vals);
     
-    OpenBitSet bitset = new OpenBitSet(dataCache.valArray.size());
+    OpenBitSet bitset = new OpenBitSet(dataCache.getValArraySize());
     for (int i : index) {
       bitset.fastSet(i);
     }

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.log4j.Logger;
 
 import com.browseengine.bobo.api.BoboIndexReader;
@@ -18,7 +19,7 @@ import com.browseengine.bobo.facets.FacetCountCollector;
 import com.browseengine.bobo.facets.FacetCountCollectorSource;
 import com.browseengine.bobo.facets.FacetHandler;
 import com.browseengine.bobo.facets.FacetHandler.FacetDataNone;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.filter.EmptyFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessAndFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessFilter;

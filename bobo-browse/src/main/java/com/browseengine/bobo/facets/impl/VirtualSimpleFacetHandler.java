@@ -1,8 +1,10 @@
 package com.browseengine.bobo.facets.impl;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
+import com.browseengine.bobo.facets.data.*;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedList;
@@ -11,17 +13,10 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import com.browseengine.bobo.util.LazyBigIntArray;
 import org.apache.lucene.index.TermDocs;
 
 import com.browseengine.bobo.api.BoboIndexReader;
-import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.facets.data.TermListFactory;
-import com.browseengine.bobo.facets.data.TermFixedLengthLongArrayListFactory;
-import com.browseengine.bobo.facets.data.TermStringList;
-import com.browseengine.bobo.facets.data.TermValueList;
-import com.browseengine.bobo.facets.data.FacetDataFetcher;
-import com.browseengine.bobo.util.BigIntArray;
-import com.browseengine.bobo.util.BigSegmentedArray;
 
 public class VirtualSimpleFacetHandler extends SimpleFacetHandler
 {
@@ -140,8 +135,8 @@ public class VirtualSimpleFacetHandler extends SimpleFacetHandler
     int maxDoc = reader.maxDoc();
     int size = dataMap == null ? 1:(dataMap.size() + 1);
 
-    BigSegmentedArray order = new BigIntArray(maxDoc);
-    TermValueList list = _termListFactory == null ?
+      IntBuffer order = ByteBuffer.allocateDirect(4 * (1 + maxDoc)).asIntBuffer();
+      TermValueList list = _termListFactory == null ?
       new TermStringList(size) :
       _termListFactory.createTermList(size);
 
@@ -167,7 +162,7 @@ public class VirtualSimpleFacetHandler extends SimpleFacetHandler
         while((docId = docList.poll()) != null)
         {
           doc = docId;
-          order.add(doc, i);
+          order.put(doc, i);
         }
         maxIDs[i] = doc;
         ++i;
@@ -175,8 +170,21 @@ public class VirtualSimpleFacetHandler extends SimpleFacetHandler
     }
     list.seal();
 
-    FacetDataCache dataCache = new FacetDataCache(order, list, freqs, minIDs,
-      maxIDs, TermCountSize.large);
+      IntBuffer minIdsBuffer = ByteBuffer.allocateDirect(4 * minIDs.length).asIntBuffer();
+      minIdsBuffer.put(minIDs);
+
+      IntBuffer maxIdsBuffer = ByteBuffer.allocateDirect(4 * maxIDs.length).asIntBuffer();
+      maxIdsBuffer.put(maxIDs);
+
+//      IntBuffer freqListBuffer = ByteBuffer.allocateDirect(4 * freqs.length).asIntBuffer();
+//      freqListBuffer.put(freqs);
+
+      LazyBigIntArray lazyFreqs = new LazyBigIntArray(freqs.length);
+      for(int i = 0; i < freqs.length; i++) {
+          lazyFreqs.add(i, freqs[i]);
+      }
+
+      FacetDataCache dataCache = new FacetDataCache(1+maxDoc, order, list, lazyFreqs, minIdsBuffer, maxIdsBuffer, TermCountSize.large);
     return dataCache;
   }
 

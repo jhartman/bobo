@@ -14,13 +14,11 @@ import com.browseengine.bobo.api.FacetIterator;
 import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.data.MultiValueFacetDataCache;
 import com.browseengine.bobo.facets.impl.DefaultFacetCountCollector;
-import com.browseengine.bobo.util.BigIntArray;
 import com.browseengine.bobo.util.BigNestedIntArray;
 
 public  final class AttributesFacetCountCollector extends DefaultFacetCountCollector {
   private final AttributesFacetHandler attributesFacetHandler;
-  public final BigNestedIntArray _array;
-  private int[] buffer;   
+  private int[] buffer;
   private List<BrowseFacet> cachedFacets;
   private final int numFacetsPerKey;
   private final char separator;
@@ -36,7 +34,6 @@ public  final class AttributesFacetCountCollector extends DefaultFacetCountColle
     this.dataCache = dataCache;
     this.numFacetsPerKey = numFacetsPerKey;
     this.separator = separator;
-    _array = dataCache._nestedArray;
     if (browseSelection != null){
       values = browseSelection.getValues();
     }
@@ -44,13 +41,13 @@ public  final class AttributesFacetCountCollector extends DefaultFacetCountColle
 
   @Override
   public final void collect(int docid) {    
-      dataCache._nestedArray.countNoReturn(docid, _count);    
+      dataCache.countNoReturn(docid, _count);
   }
 
   @Override
   public final void collectAll()
   {
-    _count = BigIntArray.fromArray(_dataCache.freqs);
+    _count = _dataCache.getFreqs();
   }
   @Override
   public List<BrowseFacet> getFacets() {

@@ -2,15 +2,15 @@ package com.browseengine.bobo.facets.filter;
 
 import java.io.IOException;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.lucene.search.DocIdSetIterator;
 
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.docidset.EmptyDocIdSet;
 import com.browseengine.bobo.docidset.RandomAccessDocIdSet;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.facets.data.MultiValueFacetDataCache;
-import com.browseengine.bobo.util.BigSegmentedArray;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
+
 
 public class CompactMultiValueFacetFilter extends RandomAccessFilter {
 	/**
@@ -36,7 +36,7 @@ public class CompactMultiValueFacetFilter extends RandomAccessFilter {
   {
     double selectivity = 0;
     FacetDataCache dataCache = _facetHandler.getFacetData(reader);
-    int[] idxes = FacetDataCache.convert(dataCache,_vals);
+    int[] idxes = FacetDataCache.convert(dataCache, _vals);
     if(idxes == null)
     {
       return 0.0;
@@ -44,7 +44,7 @@ public class CompactMultiValueFacetFilter extends RandomAccessFilter {
     int accumFreq=0;
     for(int idx : idxes)
     {
-      accumFreq +=dataCache.freqs[idx];
+      accumFreq +=dataCache.getFreq(idx);
     }
     int total = reader.maxDoc();
     selectivity = (double)accumFreq/(double)total;
@@ -58,27 +58,27 @@ public class CompactMultiValueFacetFilter extends RandomAccessFilter {
 	private final static class CompactMultiValueFacetDocIdSetIterator extends DocIdSetIterator
 	{
 	    private final int _bits;
+        private final FacetDataCache _dataCache;
 	    private int _doc;
 	    private int _maxID;
-	    private final BigSegmentedArray _orderArray;
-	    
+
 		public CompactMultiValueFacetDocIdSetIterator(FacetDataCache dataCache,int[] index,int bits) {
 			_bits = bits;
 			_doc = Integer.MAX_VALUE;
 	        _maxID = -1;
-	        _orderArray = dataCache.orderArray;
 	        for (int i : index)
 	        {
-	          if (_doc > dataCache.minIDs[i]){
-	            _doc = dataCache.minIDs[i];
+	          if (_doc > dataCache.getMinId(i)){
+	            _doc = dataCache.getMinId(i);
 	          }
-	          if (_maxID < dataCache.maxIDs[i])
+	          if (_maxID < dataCache.getMaxId(i))
 	          {
-	            _maxID = dataCache.maxIDs[i];
+	            _maxID = dataCache.getMaxId(i);
 	          }
 	        }
 	        _doc--;
 	        if (_doc<0) _doc=-1;
+            _dataCache = dataCache;
 		}
 		
 		@Override
@@ -90,7 +90,7 @@ public class CompactMultiValueFacetFilter extends RandomAccessFilter {
 		@Override
         public final int nextDoc() throws IOException
         {
-          return (_doc = (_doc < _maxID ? _orderArray.findBits(_bits, (_doc + 1), _maxID) : NO_MORE_DOCS));
+          return (_doc = (_doc < _maxID ? _dataCache.findBits(_bits, (_doc + 1), _maxID) : NO_MORE_DOCS));
         }
 
         @Override
@@ -98,7 +98,7 @@ public class CompactMultiValueFacetFilter extends RandomAccessFilter {
         {
           if (_doc < id)
           {
-            return (_doc = (id <= _maxID ? _orderArray.findBits(_bits, id, _maxID) : NO_MORE_DOCS));
+            return (_doc = (id <= _maxID ? _dataCache.findBits(_bits, id, _maxID) : NO_MORE_DOCS));
           }
           return nextDoc();
         }
@@ -108,7 +108,7 @@ public class CompactMultiValueFacetFilter extends RandomAccessFilter {
 	public RandomAccessDocIdSet getRandomAccessDocIdSet(final BoboIndexReader reader) throws IOException 
 	{
 		final FacetDataCache dataCache = _facetHandler.getFacetData(reader);
-		final int[] indexes = FacetDataCache.convert(dataCache,_vals);
+		final int[] indexes = FacetDataCache.convert(dataCache, _vals);
 		
 		int bits;
 		bits = 0x0;
@@ -118,9 +118,7 @@ public class CompactMultiValueFacetFilter extends RandomAccessFilter {
 		}
 		
 		final int finalBits = bits;
-		
-		final BigSegmentedArray orderArray = dataCache.orderArray;
-		
+
 		if (indexes.length == 0)
 		{
 			return EmptyDocIdSet.getInstance();
@@ -138,7 +136,7 @@ public class CompactMultiValueFacetFilter extends RandomAccessFilter {
 		        @Override
 		        final public boolean get(int docId)
 		        {
-		          return (orderArray.get(docId) & finalBits) != 0x0;
+		          return (dataCache.getOrderArrayValue(docId) & finalBits) != 0x0;
 		        }
 			};
 		}

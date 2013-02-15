@@ -1,12 +1,11 @@
 package com.browseengine.bobo.facets.impl;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.log4j.Logger;
 import org.apache.lucene.search.Explanation;
 
@@ -16,7 +15,7 @@ import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.FacetCountCollector;
 import com.browseengine.bobo.facets.FacetCountCollectorSource;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.TermListFactory;
 import com.browseengine.bobo.facets.filter.AdaptiveFacetFilter;
 import com.browseengine.bobo.facets.filter.EmptyFilter;
@@ -24,13 +23,11 @@ import com.browseengine.bobo.facets.filter.FacetFilter;
 import com.browseengine.bobo.facets.filter.FacetOrFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessNotFilter;
-import com.browseengine.bobo.facets.filter.RandomAccessOrFilter;
 import com.browseengine.bobo.facets.filter.AdaptiveFacetFilter.FacetDataCacheBuilder;
 import com.browseengine.bobo.query.scoring.BoboDocScorer;
 import com.browseengine.bobo.query.scoring.FacetScoreable;
 import com.browseengine.bobo.query.scoring.FacetTermScoringFunctionFactory;
 import com.browseengine.bobo.sort.DocComparatorSource;
-import com.browseengine.bobo.util.BigIntArray;
 
 public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements FacetScoreable
 {
@@ -87,7 +84,7 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
 	public String[] getFieldValues(BoboIndexReader reader,int id) {
 		FacetDataCache dataCache = getFacetData(reader);
 		if (dataCache!=null){
-		  return new String[]{dataCache.valArray.get(dataCache.orderArray.get(id))};
+		  return new String[]{dataCache.getValArray().get(dataCache.getOrderArrayValue(id))};
 		}
 		return new String[0];
 	}
@@ -96,7 +93,7 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
 	public Object[] getRawFieldValues(BoboIndexReader reader,int id){
 		FacetDataCache dataCache = getFacetData(reader);
 		if (dataCache!=null){
-		  return new Object[]{dataCache.valArray.getRawValue(dataCache.orderArray.get(id))};
+		  return new Object[]{dataCache.getRawValue(dataCache.getOrderArrayValue(id))};
 		}
 		return new String[0];
 	}
@@ -213,31 +210,30 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
 
 	@Override
 	public FacetDataCache load(BoboIndexReader reader) throws IOException {
-		FacetDataCache dataCache = new FacetDataCache();
-		dataCache.load(_indexFieldName, reader, _termListFactory);
+		FacetDataCache dataCache = FacetDataCache.load(_indexFieldName, reader, _termListFactory);
 		return dataCache;
 	}
 	
 	public BoboDocScorer getDocScorer(BoboIndexReader reader,FacetTermScoringFunctionFactory scoringFunctionFactory,Map<String,Float> boostMap){
 		FacetDataCache dataCache = getFacetData(reader);
-		float[] boostList = BoboDocScorer.buildBoostList(dataCache.valArray, boostMap);
+		float[] boostList = BoboDocScorer.buildBoostList(dataCache, boostMap);
 		return new SimpleBoboDocScorer(dataCache,scoringFunctionFactory,boostList);
 	}
 	
 	public static final class SimpleFacetCountCollector extends DefaultFacetCountCollector
 	{
-		public SimpleFacetCountCollector(String name,FacetDataCache dataCache,int docBase,BrowseSelection sel,FacetSpec ospec)
+		public SimpleFacetCountCollector(String name, FacetDataCache dataCache,int docBase,BrowseSelection sel,FacetSpec ospec)
 		{
 		    super(name,dataCache,docBase,sel,ospec);
 		}
 		
 		public final void collect(int docid) {
-      int index = _array.get(docid);
-      _count.add(index, _count.get(index) + 1);
+			int index = _dataCache.getOrderArrayValue(docid);
+            _count.add(index, _count.get(index) + 1);
 		}
 		
 		public final void collectAll() {
-		  _count = BigIntArray.fromArray(_dataCache.freqs);
+		  _count = _dataCache.getFreqs();
 		}
 	}
 	
@@ -245,14 +241,14 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
 	{
     protected int _totalGroups;
 
-		public SimpleGroupByFacetCountCollector(String name,FacetDataCache dataCache,int docBase,BrowseSelection sel,FacetSpec ospec)
+		public SimpleGroupByFacetCountCollector(String name, FacetDataCache dataCache,int docBase,BrowseSelection sel,FacetSpec ospec)
 		{
 		    super(name,dataCache,docBase,sel,ospec);
         _totalGroups = 0;
 		}
 		
 		public final void collect(int docid) {
-		  int index = _array.get(docid);
+		  int index = _dataCache.getOrderArrayValue(docid);
 		  int newValue = _count.get(index) + 1; 
 		  _count.add(index, newValue);
 			if(newValue <= 1)
@@ -260,7 +256,7 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
 		}
 		
 		public final void collectAll() {
-		  _count = BigIntArray.fromArray(_dataCache.freqs);
+		  _count = _dataCache.getFreqs();
       _totalGroups = -1;
 		}
 
@@ -283,20 +279,20 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
 		protected final FacetDataCache _dataCache;
 		
 		public SimpleBoboDocScorer(FacetDataCache dataCache,FacetTermScoringFunctionFactory scoreFunctionFactory,float[] boostList){
-			super(scoreFunctionFactory.getFacetTermScoringFunction(dataCache.valArray.size(), dataCache.orderArray.size()),boostList);
+			super(scoreFunctionFactory.getFacetTermScoringFunction(dataCache.getValArraySize(), dataCache.getOrderArraySize()),boostList);
 			_dataCache = dataCache;
 		}
 		
 		@Override
 		public Explanation explain(int doc){
-			int idx = _dataCache.orderArray.get(doc);
-			return _function.explain(_dataCache.freqs[idx],_boostList[idx]);
+			int idx = _dataCache.getOrderArrayValue(doc);
+			return _function.explain(_dataCache.getFreq(idx),_boostList[idx]);
 		}
 
 		@Override
 		public final float score(int docid) {
-			int idx = _dataCache.orderArray.get(docid);
-			return _function.score(_dataCache.freqs[idx],_boostList[idx]);
+			int idx = _dataCache.getOrderArrayValue(docid);
+			return _function.score(_dataCache.getFreq(idx),_boostList[idx]);
 		}
 	}
 }

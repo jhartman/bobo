@@ -502,8 +502,32 @@ public final class BigNestedIntArray
         return function.getCurrentScore();
       }
   }
-  
-  public final int compare(int i,int j){
+
+    public final float getScores(int id,BigSegmentedArray freqs,float[] boosts,FacetTermScoringFunction function){
+        function.clearScores();
+        final int[] page = _list[id >> PAGEID_SHIFT];
+        int val = page[id & SLOTID_MASK];
+
+        if(val >= 0)
+        {
+            return function.score(freqs.get(val), boosts[val]);
+        }
+        else
+        {
+            final int num = (val & COUNT_MASK);
+            val >>= VALIDX_SHIFT; // signed shift, remember this is a negative number
+            int idx;
+            for(int i = 0; i < num; i++)
+            {
+                idx = page[i-val];
+                function.scoreAndCollect(freqs.get(idx),boosts[idx]);
+            }
+            return function.getCurrentScore();
+        }
+    }
+
+
+    public final int compare(int i,int j){
 	  final int[] page1 = _list[i >> PAGEID_SHIFT];
 	  final int[] page2 = _list[j >> PAGEID_SHIFT];
 	  

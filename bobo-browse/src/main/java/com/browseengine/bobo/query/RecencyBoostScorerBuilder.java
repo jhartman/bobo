@@ -3,14 +3,12 @@ package com.browseengine.bobo.query;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.Scorer;
 
 import com.browseengine.bobo.api.BoboIndexReader;
-import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.facets.data.TermLongList;
-import com.browseengine.bobo.util.BigSegmentedArray;
 
 public class RecencyBoostScorerBuilder implements ScorerBuilder {
 
@@ -45,13 +43,11 @@ public class RecencyBoostScorerBuilder implements ScorerBuilder {
 			  Object dataObj = boboReader.getFacetData(_timeFacetName);
 			  if (dataObj instanceof FacetDataCache<?>){
 			    FacetDataCache<Long> facetDataCache = (FacetDataCache<Long>)(boboReader.getFacetData(_timeFacetName));
-			    final BigSegmentedArray orderArray = facetDataCache.orderArray;
-			    final TermLongList termList = (TermLongList)facetDataCache.valArray;
 			    final long now = System.currentTimeMillis();
 			    Explanation finalExpl = new Explanation();
 			    finalExpl.addDetail(innerExplaination);
 			    float rawScore = innerExplaination.getValue();
-			    long timeVal = termList.getPrimitiveValue(orderArray.get(doc));
+			    long timeVal = facetDataCache.getRawValue(facetDataCache.getOrderArrayValue(doc));
 			    float timeScore = computeTimeFactor(timeVal);
 			    float finalScore = combineScores(timeScore,rawScore);
 			    finalExpl.setValue(finalScore);
@@ -73,16 +69,14 @@ public class RecencyBoostScorerBuilder implements ScorerBuilder {
 		  BoboIndexReader boboReader = (BoboIndexReader)reader;
 		  Object dataObj = boboReader.getFacetData(_timeFacetName);
 		  if (dataObj instanceof FacetDataCache<?>){
-		    FacetDataCache<Long> facetDataCache = (FacetDataCache<Long>)(boboReader.getFacetData(_timeFacetName));
-		    final BigSegmentedArray orderArray = facetDataCache.orderArray;
-		    final TermLongList termList = (TermLongList)facetDataCache.valArray;
+		    final FacetDataCache<Long> facetDataCache = (FacetDataCache<Long>)(boboReader.getFacetData(_timeFacetName));
 		    return new Scorer(innerScorer.getSimilarity()){
 			  
 			
 			  @Override
 		   	  public float score() throws IOException {
 			    float rawScore = innerScorer.score();
-			    long timeVal = termList.getRawValue(orderArray.get(innerScorer.docID()));
+			    long timeVal = facetDataCache.getRawValue(facetDataCache.getOrderArrayValue(innerScorer.docID()));
 			    float timeScore = computeTimeFactor(timeVal);
 			    return combineScores(timeScore,rawScore);
 			  }

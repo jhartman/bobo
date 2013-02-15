@@ -32,12 +32,12 @@ public class MultiValueFacetFilter extends RandomAccessFilter
     {
       double selectivity = 0;
       MultiValueFacetDataCache dataCache = multiDataCacheBuilder.build(reader);
-      int idx = dataCache.valArray.indexOf(_val);
+      int idx = dataCache.getDocId(_val);
       if(idx<0)
       {
         return 0.0;
       }
-      int freq =dataCache.freqs[idx];
+      int freq =dataCache.getFreq(idx);
       int total = reader.maxDoc();
       selectivity = (double)freq/(double)total;
       return selectivity;
@@ -46,18 +46,15 @@ public class MultiValueFacetFilter extends RandomAccessFilter
     
     public final static class MultiValueFacetDocIdSetIterator extends FacetDocIdSetIterator
     {
-        private final BigNestedIntArray _nestedArray;
-
-        public MultiValueFacetDocIdSetIterator(MultiValueFacetDataCache dataCache, int index) 
+        public MultiValueFacetDocIdSetIterator(MultiValueFacetDataCache dataCache, int index)
         {
             super(dataCache, index);
-            _nestedArray = dataCache._nestedArray;
         }
         
         @Override
         final public int nextDoc() throws IOException
         {
-          return (_doc = (_doc < _maxID ? _nestedArray.findValue(_index, (_doc + 1), _maxID) : NO_MORE_DOCS));
+          return (_doc = (_doc < _maxID ? dataCache.findValue(_index, (_doc + 1), _maxID) : NO_MORE_DOCS));
         }
 
         @Override
@@ -65,7 +62,7 @@ public class MultiValueFacetFilter extends RandomAccessFilter
         {
           if(_doc < id)
           {
-            return (_doc = (id <= _maxID ? _nestedArray.findValue(_index, id, _maxID) : NO_MORE_DOCS));
+            return (_doc = (id <= _maxID ? dataCache.findValue(_index, id, _maxID) : NO_MORE_DOCS));
           }
           return nextDoc();
         }
@@ -74,8 +71,7 @@ public class MultiValueFacetFilter extends RandomAccessFilter
     @Override
     public RandomAccessDocIdSet getRandomAccessDocIdSet(BoboIndexReader reader) throws IOException {    	
       final MultiValueFacetDataCache dataCache = multiDataCacheBuilder.build(reader);  
-      final int index = dataCache.valArray.indexOf(_val);
-        final BigNestedIntArray nestedArray = dataCache._nestedArray; 
+      final int index = dataCache.getDocId(_val);
         if(index < 0)
         {
             return EmptyDocIdSet.getInstance();
@@ -92,7 +88,7 @@ public class MultiValueFacetFilter extends RandomAccessFilter
 		        @Override
 		        final public boolean get(int docId)
 		        {
-		          return nestedArray.contains(docId, index);
+		          return dataCache.contains(docId, index);
 		        }
                 
             };

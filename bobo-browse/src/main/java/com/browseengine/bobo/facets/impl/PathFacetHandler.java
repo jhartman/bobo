@@ -1,10 +1,10 @@
 package com.browseengine.bobo.facets.impl;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Properties;
 
 import com.browseengine.bobo.api.BoboIndexReader;
@@ -13,7 +13,7 @@ import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.FacetCountCollector;
 import com.browseengine.bobo.facets.FacetCountCollectorSource;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.MultiValueFacetDataCache;
 import com.browseengine.bobo.facets.data.TermListFactory;
 import com.browseengine.bobo.facets.filter.EmptyFilter;
@@ -24,7 +24,7 @@ import com.browseengine.bobo.facets.filter.RandomAccessFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessNotFilter;
 import com.browseengine.bobo.sort.DocComparatorSource;
 
-public class PathFacetHandler extends FacetHandler<FacetDataCache> 
+public class PathFacetHandler extends FacetHandler<FacetDataCache>
 {
 	private static final String DEFAULT_SEP = "/";
 	
@@ -123,11 +123,11 @@ public class PathFacetHandler extends FacetHandler<FacetDataCache>
 		FacetDataCache dataCache = getFacetData(reader);
 		if (dataCache==null) return new String[0];
 		if (_multiValue){
-		  return ((MultiValueFacetDataCache)dataCache)._nestedArray.getTranslatedData(id, dataCache.valArray);	
+		  return ((MultiValueFacetDataCache)dataCache).getTranslatedData(id);
 		}
 		else{
 		  	
-		  return new String[]{dataCache.valArray.get(dataCache.orderArray.get(id))};
+		  return new String[]{dataCache.getString(dataCache.getOrderArrayValue(id))};
 		}
 
 	}
@@ -175,15 +175,14 @@ public class PathFacetHandler extends FacetHandler<FacetDataCache>
 		
 		private void getFilters(FacetDataCache dataCache,IntSet intSet,String val, int depth, boolean strict)
 		{
-		    List<String> termList = dataCache.valArray;
-			int index = termList.indexOf(val);
+			int index = dataCache.getDocId(val);
 
 			int startDepth = getPathDepth(val,_sep);
 			
 			if (index < 0)
 			{
 				int nextIndex = -(index + 1);
-				if (nextIndex == termList.size())
+				if (nextIndex == dataCache.getValArraySize())
 				{
 					return;
 				}	
@@ -191,9 +190,9 @@ public class PathFacetHandler extends FacetHandler<FacetDataCache>
 			}
 			
 
-			for (int i=index; i<termList.size(); ++i)
+			for (int i=index; i<dataCache.getValArraySize(); ++i)
 			{
-				String path = termList.get(i);
+				String path = dataCache.getString(i);
 				if (path.startsWith(val))
 				{
 					if (!strict || getPathDepth(path,_sep) - startDepth == depth)
@@ -310,14 +309,10 @@ public class PathFacetHandler extends FacetHandler<FacetDataCache>
 	@Override
 	public FacetDataCache load(BoboIndexReader reader) throws IOException {
        if (!_multiValue){
-	      FacetDataCache dataCache = new FacetDataCache();
-	      dataCache.load(_indexedName, reader, _termListFactory);
-	      return dataCache;
+	      return FacetDataCache.load(_indexedName, reader, _termListFactory);
        }
        else{
-    	   MultiValueFacetDataCache dataCache = new MultiValueFacetDataCache();
-    	   dataCache.load(_indexedName, reader, _termListFactory);
- 	      return dataCache;
+    	  return MultiValueFacetDataCache.load(_indexedName, reader, _termListFactory, new BoboIndexReader.WorkArea(), reader.maxDoc());
        }
 	}
 }

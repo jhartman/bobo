@@ -63,18 +63,14 @@ public class MultiValueWithWeightFacetHandler extends MultiValueFacetHandler
   @Override
   public MultiValueWithWeightFacetDataCache load(BoboIndexReader reader, WorkArea workArea) throws IOException
   {
-    MultiValueWithWeightFacetDataCache dataCache = new MultiValueWithWeightFacetDataCache();
-      
-    dataCache.setMaxItems(_maxItems);
-
     if(_sizePayloadTerm == null)
     {
-      dataCache.load(_indexFieldName, reader, _termListFactory, workArea);
+      return MultiValueWithWeightFacetDataCache.load(_indexFieldName, reader,  _termListFactory, workArea, _maxItems);
     }
     else
     {
-      dataCache.load(_indexFieldName, reader, _termListFactory, _sizePayloadTerm);
+        return null;
+//      return MultiValueWithWeightFacetDataCache.load(_indexFieldName, reader,  _termListFactory, _sizePayloadTerm, _maxItems);
     }
-    return dataCache;
   }
 }

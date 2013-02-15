@@ -1,5 +1,6 @@
 package com.browseengine.bobo.facets.filter;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -11,10 +12,8 @@ import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.docidset.EmptyDocIdSet;
 import com.browseengine.bobo.docidset.RandomAccessDocIdSet;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.MultiValueFacetDataCache;
-import com.browseengine.bobo.util.BigNestedIntArray;
-import com.browseengine.bobo.util.BigSegmentedArray;
 
 public final class FacetRangeFilter extends RandomAccessFilter 
 {
@@ -39,7 +38,7 @@ public final class FacetRangeFilter extends RandomAccessFilter
       int accumFreq=0;
       for(int idx=range[0]; idx<=range[1]; ++idx)
       {
-        accumFreq +=dataCache.freqs[idx];
+        accumFreq +=dataCache.getFreq(idx);
       }
       int total = reader.maxDoc();
       selectivity = (double)accumFreq/(double)total;
@@ -59,20 +58,20 @@ public final class FacetRangeFilter extends RandomAccessFilter
 		private int _maxID = -1;
 		private final int _start;
 		private final int _end;
-		private final BigSegmentedArray _orderArray;
+		private final FacetDataCache _facetDataCache;
 		
 		
-		FacetRangeDocIdSetIterator(int start,int end,FacetDataCache dataCache)
+		FacetRangeDocIdSetIterator(int start,int end, FacetDataCache dataCache)
 		{			
 			_start=start;
 			_end=end;
 			for (int i=start;i<=end;++i)
 			{			
-				_minID = Math.min(_minID, dataCache.minIDs[i]);
-				_maxID = Math.max(_maxID, dataCache.maxIDs[i]);
+				_minID = Math.min(_minID, dataCache.getMinId(i));
+				_maxID = Math.max(_maxID, dataCache.getMaxId(i));
 			}
 			_doc=Math.max(-1,_minID-1);
-			_orderArray = dataCache.orderArray;
+            _facetDataCache = dataCache;
 		}
 		
 		@Override
@@ -83,7 +82,7 @@ public final class FacetRangeFilter extends RandomAccessFilter
 		@Override
 		final public int nextDoc() throws IOException
 		{
-          return (_doc = (_doc < _maxID ? _orderArray.findValueRange(_start, _end, (_doc + 1), _maxID) : NO_MORE_DOCS));
+          return (_doc = (_doc < _maxID ? _facetDataCache.findValueRange(_start, _end, (_doc + 1), _maxID) : NO_MORE_DOCS));
 		}
 
 		@Override
@@ -91,7 +90,7 @@ public final class FacetRangeFilter extends RandomAccessFilter
 		{
 		  if (_doc < id)
 		  {
-		    return (_doc = (id <= _maxID ? _orderArray.findValueRange(_start, _end, id, _maxID) : NO_MORE_DOCS));
+		    return (_doc = (id <= _maxID ? _facetDataCache.findValueRange(_start, _end, id, _maxID) : NO_MORE_DOCS));
 		  }
           return nextDoc();
 		}
@@ -104,8 +103,8 @@ public final class FacetRangeFilter extends RandomAccessFilter
     private int _maxID = -1;
     private final int _start;
     private final int _end;
-    private final BigNestedIntArray nestedArray;
-    
+
+    private final MultiValueFacetDataCache _dataCache;
     
     MultiFacetRangeDocIdSetIterator(int start,int end, MultiValueFacetDataCache dataCache)
     {     
@@ -113,11 +112,12 @@ public final class FacetRangeFilter extends RandomAccessFilter
       _end=end;
       for (int i=start;i<=end;++i)
       {     
-        _minID = Math.min(_minID, dataCache.minIDs[i]);
-        _maxID = Math.max(_maxID, dataCache.maxIDs[i]);
+        _minID = Math.min(_minID, dataCache.getMinId(i));
+        _maxID = Math.max(_maxID, dataCache.getMaxId(i));
       }
       _doc=Math.max(-1,_minID-1);
-      nestedArray = dataCache._nestedArray;
+        _dataCache = dataCache;
+//      nestedArray = dataCache._nestedArray;
     }
     
     @Override
@@ -128,7 +128,7 @@ public final class FacetRangeFilter extends RandomAccessFilter
     @Override
     final public int nextDoc() throws IOException
     {
-          return (_doc = (_doc < _maxID ? nestedArray.findValuesInRange(_start, _end, (_doc + 1), _maxID) : NO_MORE_DOCS));
+          return (_doc = (_doc < _maxID ? _dataCache.findValuesInRange(_start, _end, (_doc + 1), _maxID) : NO_MORE_DOCS));
     }
 
     @Override
@@ -136,7 +136,7 @@ public final class FacetRangeFilter extends RandomAccessFilter
     {
       if (_doc < id)
       {
-        return (_doc = (id <= _maxID ? nestedArray.findValuesInRange(_start, _end, id, _maxID) : NO_MORE_DOCS));
+        return (_doc = (id <= _maxID ? _dataCache.findValuesInRange(_start, _end, id, _maxID) : NO_MORE_DOCS));
       }
           return nextDoc();
     }
@@ -201,7 +201,7 @@ public final class FacetRangeFilter extends RandomAccessFilter
 	    }
 	    else
 	    {
-	    	start=dataCache.valArray.indexOf(lower);
+	    	start=dataCache.getDocId(lower);
 	    	if (start<0)
 	    	{
 	    		start=-(start + 1);
@@ -219,11 +219,11 @@ public final class FacetRangeFilter extends RandomAccessFilter
 	    
 	    if (upper==null)
 	    {
-	    	end=dataCache.valArray.size()-1;
+	    	end=dataCache.getValArraySize()-1;
 	    }
 	    else
 	    {
-	    	end=dataCache.valArray.indexOf(upper);
+	    	end=dataCache.getDocId(upper);
 	    	if (end<0)
 	    	{
 	    		end=-(end + 1);
@@ -284,7 +284,7 @@ public final class FacetRangeFilter extends RandomAccessFilter
     final FacetDataCache dataCache = _facetHandler.getFacetData(reader);
 
     final boolean multi = dataCache instanceof MultiValueFacetDataCache;    
-    final BigNestedIntArray nestedArray = multi ? ((MultiValueFacetDataCache) dataCache)._nestedArray : null;
+//    final BigNestedIntArray nestedArray = multi ? ((MultiValueFacetDataCache) dataCache)._nestedArray : null;
     final int[] range = parse(dataCache,_rangeString);
     
     if (range == null) return null;
@@ -306,9 +306,9 @@ public final class FacetRangeFilter extends RandomAccessFilter
       final public boolean get(int docId)
       {
         if (multi) {
-          nestedArray.containsValueInRange(docId, _start, _end);
+          ((MultiValueFacetDataCache) dataCache).containsValueInRange(docId, _start, _end);
         }
-        int index = dataCache.orderArray.get(docId);        
+        int index = dataCache.getOrderArrayValue(docId);
         return index >= _start && index <= _end;
       }
 

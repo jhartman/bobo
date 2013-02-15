@@ -2,6 +2,7 @@ package com.browseengine.bobo.facets.impl;
 
 import com.browseengine.bobo.api.BrowseSelection;
 import com.browseengine.bobo.api.FacetSpec;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.FacetDataCache;
 
 public abstract class GroupByFacetCountCollector extends DefaultFacetCountCollector

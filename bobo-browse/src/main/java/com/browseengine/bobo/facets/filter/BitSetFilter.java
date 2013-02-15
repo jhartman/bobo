@@ -2,13 +2,14 @@ package com.browseengine.bobo.facets.filter;
 
 import java.io.IOException;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.OpenBitSet;
 
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.docidset.EmptyDocIdSet;
 import com.browseengine.bobo.docidset.RandomAccessDocIdSet;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.MultiValueFacetDataCache;
 import com.browseengine.bobo.facets.filter.AdaptiveFacetFilter.FacetDataCacheBuilder;
 import com.browseengine.bobo.facets.range.BitSetBuilder;
@@ -58,9 +59,9 @@ public class BitSetFilter extends RandomAccessFilter {
           }
           public boolean get(int docId) {
             if (multi) {
-              return multiCache._nestedArray.contains(docId, openBitSet);
+              return multiCache.contains(docId, openBitSet);
             } else {
-              return openBitSet.fastGet(dataCache.orderArray.get(docId));
+              return openBitSet.fastGet(dataCache.getOrderArrayValue(docId));
             }
           }
         };
@@ -71,12 +72,11 @@ public class BitSetFilter extends RandomAccessFilter {
     public double getFacetSelectivity(BoboIndexReader reader) {
       FacetDataCache dataCache = facetDataCacheBuilder.build(reader);
       final OpenBitSet openBitSet = getBitSet(dataCache);
-      int[] frequencies = dataCache.freqs;
       double selectivity = 0;
       int accumFreq = 0;
       int index = openBitSet.nextSetBit(0);
       while (index >= 0) {
-        accumFreq += frequencies[index];
+        accumFreq += dataCache.getFreq(index);
         index = openBitSet.nextSetBit(index + 1);
       }
       int total = reader.maxDoc();

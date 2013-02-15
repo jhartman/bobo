@@ -5,14 +5,14 @@ package com.browseengine.bobo.facets.filter;
 
 import java.io.IOException;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.lucene.search.DocIdSetIterator;
 
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.docidset.RandomAccessDocIdSet;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.impl.GeoSimpleFacetHandler;
-import com.browseengine.bobo.util.BigSegmentedArray;
 
 /**
  * @author nnarkhed
@@ -48,9 +48,9 @@ public final class GeoSimpleFacetFilter extends RandomAccessFilter {
 		private final int _latEnd;
 		private final int _longStart;
 		private final int _longEnd;
-		private final BigSegmentedArray _latOrderArray;
-		private final BigSegmentedArray _longOrderArray;
-		
+        private final FacetDataCache _latDataCache;
+        private final FacetDataCache _longDataCache;
+
 		GeoSimpleDocIdSetIterator(int latStart, int latEnd, int longStart, int longEnd, FacetDataCache latDataCache, FacetDataCache longDataCache) {
 			_totalFreq = 0;
 			_latStart = latStart;
@@ -58,16 +58,16 @@ public final class GeoSimpleFacetFilter extends RandomAccessFilter {
 			_latEnd = latEnd;
 			_longEnd = longEnd;
 			for(int i = latStart;i <= latEnd; ++i) {
-				_minID = Math.min(_minID, latDataCache.minIDs[i]);
-				_maxID = Math.max(_maxID, latDataCache.maxIDs[i]);				
+				_minID = Math.min(_minID, latDataCache.getMinId(i));
+				_maxID = Math.max(_maxID, latDataCache.getMaxId(i));
 			}
 			for(int i = longStart;i <= longEnd; ++i) {
-				_minID = Math.min(_minID, longDataCache.minIDs[i]);
-				_maxID = Math.max(_maxID, longDataCache.maxIDs[i]);				
+				_minID = Math.min(_minID, longDataCache.getMinId(i));
+				_maxID = Math.max(_maxID, longDataCache.getMaxId(i));
 			}
 			_doc = Math.max(-1, _minID-1);
-			_latOrderArray = latDataCache.orderArray;
-			_longOrderArray = longDataCache.orderArray;
+            _latDataCache = latDataCache;
+            _longDataCache = longDataCache;
 		}
 		
 		@Override
@@ -80,8 +80,10 @@ public final class GeoSimpleFacetFilter extends RandomAccessFilter {
 			int latIndex;
 			int longIndex;
 			while(_doc < _maxID) {	//not yet reached end
-				latIndex = _latOrderArray.get(++_doc);
-				longIndex = _latOrderArray.get(_doc);
+
+                // TODO JHARTMAN BLAHFIXME
+				latIndex = _latDataCache.getOrderArrayValue(++_doc);
+				longIndex = _latDataCache.getOrderArrayValue(_doc);
 				if((latIndex >= _latStart && latIndex <= _latEnd) && (longIndex >= _longStart && longIndex <= _longEnd)) 
 					return _doc;
 			}
@@ -96,8 +98,8 @@ public final class GeoSimpleFacetFilter extends RandomAccessFilter {
 			int latIndex;
 			int longIndex;
 			while(_doc < _maxID) {	//not yet reached end
-				latIndex = _latOrderArray.get(++_doc);
-				longIndex = _latOrderArray.get(_doc);
+				latIndex = _latDataCache.getOrderArrayValue(++_doc);
+				longIndex = _latDataCache.getOrderArrayValue(_doc);
 				if((latIndex >= _latStart && latIndex <= _latEnd) && (longIndex >= _longStart && longIndex <= _longEnd)) 
 					return _doc;
 			}
@@ -123,8 +125,8 @@ public final class GeoSimpleFacetFilter extends RandomAccessFilter {
 			
 			@Override
 			final public boolean get(int docid) {
-				int latIndex = latDataCache.orderArray.get(docid);
-				int longIndex = longDataCache.orderArray.get(docid);
+				int latIndex = latDataCache.getOrderArrayValue(docid);
+				int longIndex = longDataCache.getOrderArrayValue(docid);
 				return latIndex >= _latStart && latIndex <= _latEnd && longIndex >= _longStart && longIndex <= _longEnd;
 			}
 			
@@ -149,7 +151,7 @@ public final class GeoSimpleFacetFilter extends RandomAccessFilter {
 	    	latStart = 1;
 	    else
 	    {
-	    	latStart = latDataCache.valArray.indexOf(latLower);
+	    	latStart = latDataCache.getDocId(latLower);
 	    	if (latStart < 0)
 	    	{
 	    		latStart = -(latStart + 1);
@@ -160,7 +162,7 @@ public final class GeoSimpleFacetFilter extends RandomAccessFilter {
 	    	longStart = 1;
 	    else
 	    {
-	    	longStart = longDataCache.valArray.indexOf(longLower);
+	    	longStart = longDataCache.getDocId(longLower);
 	    	if (longStart < 0)
 	    	{
 	    		longStart = -(longStart + 1);
@@ -169,11 +171,11 @@ public final class GeoSimpleFacetFilter extends RandomAccessFilter {
 
 	    if (latUpper==null)
 	    {
-	    	latEnd = latDataCache.valArray.size()-1;
+	    	latEnd = latDataCache.getValArraySize()-1;
 	    }
 	    else
 	    {
-	    	latEnd = latDataCache.valArray.indexOf(latUpper);
+	    	latEnd = latDataCache.getDocId(latUpper);
 	    	if (latEnd<0)
 	    	{
 	    		latEnd = -(latEnd + 1);
@@ -183,11 +185,11 @@ public final class GeoSimpleFacetFilter extends RandomAccessFilter {
 
 	    if (longUpper==null)
 	    {
-	    	longEnd = longDataCache.valArray.size()-1;
+	    	longEnd = longDataCache.getValArraySize() - 1;
 	    }
 	    else
 	    {
-	    	longEnd = longDataCache.valArray.indexOf(longUpper);
+	    	longEnd = longDataCache.getDocId(longUpper);
 	    	if (longEnd<0)
 	    	{
 	    		longEnd = -(longEnd + 1);

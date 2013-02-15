@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.log4j.Logger;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
@@ -16,8 +17,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.docidset.EmptyDocIdSet;
 import com.browseengine.bobo.docidset.RandomAccessDocIdSet;
-import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.facets.data.TermValueList;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.kamikaze.docidset.impl.OrDocIdSet;
 
 public class AdaptiveFacetFilter extends RandomAccessFilter {
@@ -68,16 +68,15 @@ public class AdaptiveFacetFilter extends RandomAccessFilter {
 		  
 	  FacetDataCache dataCache = _facetDataCacheBuilder.build(reader);
 	  int totalCount = reader.maxDoc();
-	  TermValueList valArray = dataCache.valArray;
 	  int freqCount = 0;
 	  
 	  
 	  ArrayList<String> validVals = new ArrayList<String>(_valSet.size());
 	  for (String val : _valSet){
-		  int idx = valArray.indexOf(val);
+		  int idx = dataCache.getDocId(val);
 		  if (idx>=0){
-			  validVals.add(valArray.get(idx));		// get and format the value
-			  freqCount+=dataCache.freqs[idx];
+			  validVals.add(dataCache.getString(idx));		// get and format the value
+			  freqCount+=dataCache.getFreq(idx);
 		  }
 	  }
 	  

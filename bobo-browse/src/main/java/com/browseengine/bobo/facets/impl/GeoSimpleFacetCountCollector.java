@@ -7,17 +7,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.log4j.Logger;
 
 import com.browseengine.bobo.api.BrowseFacet;
 import com.browseengine.bobo.api.FacetIterator;
 import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.FacetCountCollector;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.TermStringList;
 import com.browseengine.bobo.facets.filter.FacetRangeFilter;
 import com.browseengine.bobo.facets.filter.GeoSimpleFacetFilter;
-import com.browseengine.bobo.util.BigIntArray;
 import com.browseengine.bobo.util.BigSegmentedArray;
 import com.browseengine.bobo.util.LazyBigIntArray;
 
@@ -32,11 +32,9 @@ public class GeoSimpleFacetCountCollector implements FacetCountCollector {
 	private final String _name;
 	private int[] _latCount;
 	private int[] _longCount;
-	private final BigSegmentedArray _latOrderArray;
 	private FacetDataCache _latDataCache;
 	private final TermStringList _predefinedRanges;
 	private int[][] _latPredefinedRangeIndexes;
-	private final BigSegmentedArray _longOrderArray;
 	private FacetDataCache _longDataCache;
 	private int[][] _longPredefinedRangeIndexes;
 	private int _docBase;
@@ -45,11 +43,9 @@ public class GeoSimpleFacetCountCollector implements FacetCountCollector {
 		_name = name;
 		_latDataCache = latDataCache;
 		_longDataCache = longDataCache;
-		_latCount = new int[_latDataCache.freqs.length];
-		_longCount = new int[_longDataCache.freqs.length];
-		log.info("latCount: " + _latDataCache.freqs.length + " longCount: " + _longDataCache.freqs.length);
-		_latOrderArray = _latDataCache.orderArray;
-		_longOrderArray = _longDataCache.orderArray;
+		_latCount = new int[_latDataCache.getFreqSize()];
+		_longCount = new int[_longDataCache.getFreqSize()];
+		log.info("latCount: " + _latDataCache.getFreqSize() + " longCount: " + _longDataCache.getFreqSize());
 		_docBase = docBase;
 		_spec = spec;
 		_predefinedRanges = new TermStringList();
@@ -77,8 +73,8 @@ public class GeoSimpleFacetCountCollector implements FacetCountCollector {
 	public void collect(int docid) {
 		// increment the count only if both latitude and longitude ranges are true for a particular docid
 		for(int[] range: _latPredefinedRangeIndexes) {
-			int latValue = _latOrderArray.get(docid);
-			int longValue = _longOrderArray.get(docid);
+			int latValue = _latDataCache.getOrderArrayValue(docid);
+			int longValue = _longDataCache.getOrderArrayValue(docid);
 			int latStart = range[0];
 			int latEnd = range[1];
 			if(latValue >= latStart && latValue <= latEnd) {
@@ -86,8 +82,8 @@ public class GeoSimpleFacetCountCollector implements FacetCountCollector {
 					int longStart = longRange[0];
 					int longEnd = longRange[1];
 					if(longValue >= longStart && longValue <= longEnd) {
-		          		_latCount[_latOrderArray.get(docid)]++;		
-		          		_longCount[_longOrderArray.get(docid)]++;
+		          		_latCount[_latDataCache.getOrderArrayValue(docid)]++;
+		          		_longCount[_longDataCache.getOrderArrayValue(docid)]++;
 					}
 				}
           	}
@@ -98,8 +94,13 @@ public class GeoSimpleFacetCountCollector implements FacetCountCollector {
 	 * @see com.browseengine.bobo.facets.FacetCountCollector#collectAll()
 	 */
 	public void collectAll() {
-		_latCount = _latDataCache.freqs;
-		_longCount = _longDataCache.freqs;
+        _latCount = new int[_latDataCache.getFreqSize()];
+        for(int i = 0; i < _latCount.length; i++)
+            _latCount[i] = _latDataCache.getFreq(i);
+
+        _longCount = new int[_longDataCache.getFreqSize()];
+        for(int i = 0; i < _longCount.length; i++)
+            _longCount[i] = _longDataCache.getFreq(i);
 	}
 
 	/* (non-Javadoc)

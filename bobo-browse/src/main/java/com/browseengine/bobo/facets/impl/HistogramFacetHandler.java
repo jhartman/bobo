@@ -20,10 +20,7 @@ import com.browseengine.bobo.facets.FacetCountCollectorSource;
 import com.browseengine.bobo.facets.FacetHandler;
 import com.browseengine.bobo.facets.FacetHandler.FacetDataNone;
 import com.browseengine.bobo.facets.RuntimeFacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.facets.data.TermIntList;
-import com.browseengine.bobo.facets.data.TermLongList;
-import com.browseengine.bobo.facets.data.TermValueList;
+import com.browseengine.bobo.facets.data.*;
 import com.browseengine.bobo.facets.filter.RandomAccessFilter;
 import com.browseengine.bobo.sort.DocComparatorSource;
 import com.browseengine.bobo.util.BigSegmentedArray;
@@ -122,9 +119,9 @@ public class HistogramFacetHandler<T extends Number> extends RuntimeFacetHandler
     private final T _end;
     private final T _unit;
     private final BigSegmentedArray _count;
-    private final TermValueList<?> _valArray;
     private final FacetCountCollector _baseCollector;
     private final String _facetName;
+    private final FacetDataCache<?> _dataCache;
     
     private boolean _isAggregated;
     
@@ -132,13 +129,13 @@ public class HistogramFacetHandler<T extends Number> extends RuntimeFacetHandler
     {
       _facetName = facetName;
       _baseCollector = baseCollector;
-  	  _valArray = dataCache.valArray;
       _ospec = ospec;
       _isAggregated = false;
       _start = start;
       _end = end;
       _unit = unit;
-      _count = new LazyBigIntArray(countArraySize());
+        _count = new LazyBigIntArray(countArraySize());
+        _dataCache = dataCache;
     }
     
     private int countArraySize()
@@ -213,10 +210,10 @@ public class HistogramFacetHandler<T extends Number> extends RuntimeFacetHandler
       
       _isAggregated = true;
       
-      int startIdx = _valArray.indexOf(_start);
+      int startIdx = _dataCache.getDocId(_start);
       if (startIdx < 0) startIdx = -(startIdx + 1);
       
-      int endIdx = _valArray.indexOf(_end);
+      int endIdx = _dataCache.getDocId(_end);
       if (endIdx < 0) endIdx = -(endIdx + 1);
       
       BigSegmentedArray baseCounts = _baseCollector.getCountDistribution();
@@ -224,10 +221,10 @@ public class HistogramFacetHandler<T extends Number> extends RuntimeFacetHandler
       {
         long start = _start.longValue();
         long unit = _unit.longValue();
-        TermLongList valArray = (TermLongList)_valArray;
+//        TermLongList valArray = (TermLongList)_valArray;
         for(int i = startIdx; i < endIdx; i++)
         {
-          long val = valArray.getPrimitiveValue(i);
+          long val = (Long) _dataCache.getRawValue(i);
           int idx = (int)((val - start) / unit);
           if(idx >= 0 && idx < _count.size())
           {
@@ -239,10 +236,9 @@ public class HistogramFacetHandler<T extends Number> extends RuntimeFacetHandler
       {
         int start = _start.intValue();
         int unit = _unit.intValue();
-        TermIntList valArray = (TermIntList)_valArray;
         for(int i = startIdx; i < endIdx; i++)
         {
-          int val = valArray.getPrimitiveValue(i);
+          int val = (Integer) _dataCache.getRawValue(i);
           int idx = ((val - start) / unit);
           if(idx >= 0 && idx < _count.size())
           {
@@ -256,7 +252,7 @@ public class HistogramFacetHandler<T extends Number> extends RuntimeFacetHandler
         double unit = _unit.doubleValue();
         for(int i = startIdx; i < endIdx; i++)
         {
-          Number val = (Number)_valArray.getRawValue(i);
+          Number val = (Number) _dataCache.getRawValue(i);
           int idx = (int)((val.doubleValue() - start) / unit);
           if(idx >= 0 && idx < _count.size())
           {

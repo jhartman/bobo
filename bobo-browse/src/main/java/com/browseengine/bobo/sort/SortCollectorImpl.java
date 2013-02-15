@@ -1,5 +1,6 @@
 package com.browseengine.bobo.sort;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 import java.io.IOException;
@@ -32,7 +33,7 @@ import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.CombinedFacetAccessible;
 import com.browseengine.bobo.facets.FacetCountCollector;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.PrimitiveLongArrayWrapper;
 import com.browseengine.bobo.facets.impl.GroupByFacetCountCollector;
 import com.browseengine.bobo.util.BigSegmentedArray;
@@ -261,7 +262,7 @@ public class SortCollectorImpl extends SortCollector {
           _tmpScoreDoc.doc = doc;
           _tmpScoreDoc.score = score;
           if (!_queueFull || _currentComparator.compare(_bottom,_tmpScoreDoc) > 0) {
-            final int order = ((FacetDataCache)groupBy.getFacetData(_currentReader)).orderArray.get(doc);
+            final int order = ((FacetDataCache)groupBy.getFacetData(_currentReader)).getOrderArrayValue(doc);
             ScoreDoc pre = _currentValueDocMaps.get(order);
             if (pre != null) {
               if ( _currentComparator.compare(pre, _tmpScoreDoc) > 0) {
@@ -274,7 +275,7 @@ public class SortCollectorImpl extends SortCollector {
             else {
               if (_queueFull){
                 MyScoreDoc tmp = (MyScoreDoc)_bottom;
-                _currentValueDocMaps.remove(((FacetDataCache)groupBy.getFacetData(tmp.reader)).orderArray.get(tmp.doc));
+                _currentValueDocMaps.remove(((FacetDataCache)groupBy.getFacetData(tmp.reader)).getOrderArrayValue(tmp.doc));
                 _bottom = _currentQueue.replace(_tmpScoreDoc);
                 _currentValueDocMaps.put(order, _tmpScoreDoc);
                 _tmpScoreDoc = tmp;

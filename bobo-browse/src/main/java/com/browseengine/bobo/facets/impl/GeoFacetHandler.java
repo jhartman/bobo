@@ -9,11 +9,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.log4j.Logger;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.index.TermDocs;
-import org.apache.lucene.index.TermEnum;
 
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.BrowseSelection;
@@ -21,14 +18,12 @@ import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.FacetCountCollector;
 import com.browseengine.bobo.facets.FacetCountCollectorSource;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.facets.data.TermValueList;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.filter.GeoFacetFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessFilter;
 import com.browseengine.bobo.facets.impl.GeoFacetCountCollector.GeoRange;
 import com.browseengine.bobo.sort.DocComparatorSource;
 import com.browseengine.bobo.util.BigFloatArray;
-import com.browseengine.bobo.util.BigSegmentedArray;
 import com.browseengine.bobo.util.GeoMatchUtil;
 
 /**
@@ -162,15 +157,16 @@ public class GeoFacetHandler extends FacetHandler<GeoFacetHandler.GeoFacetData> 
 			this._yValArray = yVals;
 			this._zValArray = zVals;
 			
-			BigSegmentedArray latOrderArray = latCache.orderArray;
-			TermValueList<?> latValList = latCache.valArray;
+//			BigSegmentedArray latOrderArray = latCache.orderArray;
+//			TermValueList<?> latValList = latCache.valArray;
+//
+//			BigSegmentedArray lonOrderArray = lonCache.orderArray;
+//			TermValueList<?> lonValList = lonCache.valArray;
 
-			BigSegmentedArray lonOrderArray = lonCache.orderArray;
-			TermValueList<?> lonValList = lonCache.valArray;
-			
 			for (int i=0;i<maxDoc;++i){
-				String docLatString = latValList.get(latOrderArray.get(i)).trim();
-				String docLonString = lonValList.get(lonOrderArray.get(i)).trim();
+
+				String docLatString = latCache.getString(latCache.getOrderArrayValue(i)).trim();
+				String docLonString = lonCache.getString(lonCache.getOrderArrayValue(i)).trim();
 
 				float docLat = 0;
 				if (docLatString.length() > 0){

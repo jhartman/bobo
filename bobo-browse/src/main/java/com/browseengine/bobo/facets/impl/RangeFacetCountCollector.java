@@ -12,10 +12,10 @@ import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.api.FacetSpec.FacetSortSpec;
 import com.browseengine.bobo.api.FieldValueAccessor;
 import com.browseengine.bobo.facets.FacetCountCollector;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.TermStringList;
 import com.browseengine.bobo.facets.filter.FacetRangeFilter;
-import com.browseengine.bobo.util.BigIntArray;
 import com.browseengine.bobo.util.BigSegmentedArray;
 import com.browseengine.bobo.util.IntBoundedPriorityQueue;
 import com.browseengine.bobo.util.IntBoundedPriorityQueue.IntComparator;
@@ -26,21 +26,19 @@ public class RangeFacetCountCollector implements FacetCountCollector
   private final FacetSpec _ospec;
   protected BigSegmentedArray _count;
   private int _countlength;
-  private final BigSegmentedArray _array;
-  protected FacetDataCache _dataCache;
+  protected final FacetDataCache _dataCache;
   private final String _name;
   private final TermStringList _predefinedRanges;
   private int[][] _predefinedRangeIndexes;
   private int _docBase;
   
-  public RangeFacetCountCollector(String name,FacetDataCache dataCache,int docBase,FacetSpec ospec,List<String> predefinedRanges)
+  public RangeFacetCountCollector(String name, FacetDataCache dataCache,int docBase,FacetSpec ospec,List<String> predefinedRanges)
   {
     _name = name;
     _dataCache = dataCache;
-    _countlength = _dataCache.freqs.length;
-    _count= new LazyBigIntArray(_countlength);
-    _array = _dataCache.orderArray;
-    _docBase = docBase;
+    _countlength = _dataCache.getFreqSize();
+      _count= new LazyBigIntArray(_countlength);
+      _docBase = docBase;
     _ospec=ospec;
     if(predefinedRanges != null) {
       _predefinedRanges = new TermStringList();
@@ -128,14 +126,14 @@ public class RangeFacetCountCollector implements FacetCountCollector
   }
 
   public void collect(int docid) {
-    int i = _array.get(docid);
+    int i = _dataCache.getOrderArrayValue(docid);
     _count.add(i, _count.get(i) + 1);
   }
   
   public final void collectAll()
   {
-    _count = BigIntArray.fromArray(_dataCache.freqs);
-    _countlength = _dataCache.freqs.length;
+    _count = _dataCache.getFreqs();
+    _countlength = _dataCache.getFreqSize();
   }
   
   void convertFacets(BrowseFacet[] facets){

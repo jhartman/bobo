@@ -1,5 +1,7 @@
 package com.browseengine.bobo.test;
 
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,11 +13,13 @@ import com.browseengine.bobo.api.FacetAccessible;
 import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.api.FacetSpec.FacetSortSpec;
 import com.browseengine.bobo.facets.CombinedFacetAccessible;
+import com.browseengine.bobo.facets.FacetHandler;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.TermIntList;
 import com.browseengine.bobo.facets.data.TermValueList;
 import com.browseengine.bobo.facets.impl.SimpleFacetHandler.SimpleFacetCountCollector;
-import com.browseengine.bobo.util.BigIntArray;
+import com.browseengine.bobo.util.LazyBigIntArray;
 
 public class FacetMergePerf {
 	static int numVals = 100000;
@@ -26,10 +30,9 @@ public class FacetMergePerf {
 	
 	static int percent_zero=80;
 	static FacetDataCache makeFacetDataCache(){
-		FacetDataCache cache = new FacetDataCache();
-		cache.freqs = new int[numVals];
+		int[] freqs = new int[numVals];
 		Random r = new Random();
-		for (int i=0;i<cache.freqs.length;++i){
+		for (int i=0;i<freqs.length;++i){
 			int p = r.nextInt(100);
 			int v;
 			if (p%100<percent_zero){
@@ -39,20 +42,36 @@ public class FacetMergePerf {
 				v = Math.abs(rand.nextInt(numDocs-1))+1;
 			}
 			
-			cache.freqs[i]=v;
+			freqs[i]=v;
 		}
 		//Arrays.fill(cache.freqs,1);
-		cache.maxIDs = new int[numVals];
-		cache.minIDs = new int[numVals];
-		cache.valArray = new TermIntList(numVals,"0000000000");
+		int[] maxIDs = new int[numVals];
+		int[] minIDs = new int[numVals];
+		TermIntList valArray = new TermIntList(numVals,"0000000000");
 		DecimalFormat formatter = new DecimalFormat("0000000000");
 		
 		for (int i=0;i<numVals;++i){
-			cache.valArray.add(formatter.format(i+1));
+			valArray.add(formatter.format(i+1));
 		}
-		cache.valArray.seal();
-		cache.orderArray = new BigIntArray(numDocsPerSeg);
-		return cache;
+		valArray.seal();
+
+        IntBuffer minIdsBuffer = ByteBuffer.allocateDirect(4 * minIDs.length).asIntBuffer();
+        minIdsBuffer.put(minIDs);
+
+        IntBuffer maxIdsBuffer = ByteBuffer.allocateDirect(4 * maxIDs.length).asIntBuffer();
+        maxIdsBuffer.put(maxIDs);
+
+        IntBuffer freqListBuffer = ByteBuffer.allocateDirect(4 * freqs.length).asIntBuffer();
+        freqListBuffer.put(freqs);
+
+        IntBuffer orderArray = ByteBuffer.allocateDirect(4 * (1 + numDocs)).asIntBuffer();
+
+        LazyBigIntArray lazyFreqs = new LazyBigIntArray(freqs.length);
+        for(int i = 0; i < freqs.length; i++) {
+            lazyFreqs.add(i, freqs[i]);
+        }
+
+        return new FacetDataCache(1+numDocs, orderArray, valArray, lazyFreqs, minIdsBuffer, maxIdsBuffer, FacetHandler.TermCountSize.large);
 	}
 	
 	static FacetAccessible buildSubAccessible(String name,int segment,FacetSpec fspec){

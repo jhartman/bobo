@@ -1,6 +1,7 @@
 package com.browseengine.bobo.facets.range;
 
 import com.browseengine.bobo.api.BoboIndexReader;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.filter.AdaptiveFacetFilter.FacetDataCacheBuilder;
 

@@ -1,10 +1,15 @@
 package com.browseengine.bobo.facets.impl;
 
+import com.browseengine.bobo.facets.data.*;
+import com.browseengine.bobo.util.BigSegmentedArray;
+import com.browseengine.bobo.util.LazyBigIntArray;
 import it.unimi.dsi.fastutil.floats.FloatArrayList;
 import it.unimi.dsi.fastutil.floats.FloatList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,10 +31,6 @@ import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.FacetCountCollector;
 import com.browseengine.bobo.facets.FacetCountCollectorSource;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.facets.data.TermListFactory;
-import com.browseengine.bobo.facets.data.TermStringList;
-import com.browseengine.bobo.facets.data.TermValueList;
 import com.browseengine.bobo.facets.filter.CompactMultiValueFacetFilter;
 import com.browseengine.bobo.facets.filter.EmptyFilter;
 import com.browseengine.bobo.facets.filter.RandomAccessAndFilter;
@@ -40,8 +41,6 @@ import com.browseengine.bobo.query.scoring.FacetScoreable;
 import com.browseengine.bobo.query.scoring.FacetTermScoringFunctionFactory;
 import com.browseengine.bobo.sort.DocComparator;
 import com.browseengine.bobo.sort.DocComparatorSource;
-import com.browseengine.bobo.util.BigIntArray;
-import com.browseengine.bobo.util.BigSegmentedArray;
 import com.browseengine.bobo.util.StringArrayComparator;
 
 public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> implements FacetScoreable
@@ -134,7 +133,7 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
   public int getNumItems(BoboIndexReader reader, int id) {
 	FacetDataCache dataCache = getFacetData(reader);
 	if (dataCache==null) return 0;
-	int encoded=dataCache.orderArray.get(id);
+	int encoded=dataCache.getOrderArrayValue(id);
 	return countBits(encoded);
   }
 
@@ -142,7 +141,7 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 	public String[] getFieldValues(BoboIndexReader reader,int id) {
 	  FacetDataCache dataCache = getFacetData(reader);
 	  if (dataCache==null) return new String[0];
-		int encoded=dataCache.orderArray.get(id);
+		int encoded=dataCache.getOrderArrayValue(id);
 		if (encoded==0) {
 			return new String[]{""};
 		}
@@ -153,7 +152,7 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 			while(encoded != 0)
 			{
 				if ((encoded & 0x00000001) != 0x0){
-					valList.add(dataCache.valArray.get(count));
+					valList.add(dataCache.getString(count));
 				}
 				count++;
 				encoded >>>= 1;
@@ -166,7 +165,7 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 	public Object[] getRawFieldValues(BoboIndexReader reader,int id){
     	FacetDataCache dataCache = getFacetData(reader);
     	if (dataCache==null) return new String[0];
-    	int encoded=dataCache.orderArray.get(id);
+    	int encoded=dataCache.getOrderArrayValue(id);
 		if (encoded==0) {
 			return new Object[0];
 		}
@@ -177,7 +176,7 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 			while(encoded != 0)
 			{
 				if ((encoded & 0x00000001) != 0x0){
-					valList.add(dataCache.valArray.getRawValue(count));
+					valList.add(dataCache.getRawValue(count));
 				}
 				count++;
 				encoded >>>= 1;
@@ -203,14 +202,14 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 	public FacetDataCache load(BoboIndexReader reader) throws IOException {
 		int maxDoc = reader.maxDoc();
 
-		BigIntArray order = new BigIntArray(maxDoc);
+        IntBuffer orderArray = ByteBuffer.allocateDirect(4 * (1 + maxDoc)).asIntBuffer();
 
-		TermValueList mterms = _termListFactory == null ? new TermStringList() : _termListFactory.createTermList();
-		
-		IntArrayList minIDList=new IntArrayList();
-	    IntArrayList maxIDList=new IntArrayList();
-	    IntArrayList freqList = new IntArrayList();
-	    
+        IntArrayList minIDList = new IntArrayList();
+        IntArrayList maxIDList = new IntArrayList();
+        IntArrayList freqList = new IntArrayList();
+
+        TermValueList mterms = _termListFactory == null ? new TermStringList() : _termListFactory.createTermList();
+
 		TermDocs termDocs = null;
 		TermEnum termEnum = null;
 		int t = 0; // current term number
@@ -247,14 +246,14 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 		        {
 		          df++;
                   int docid = termDocs.doc();
-                  order.add(docid, order.get(docid) | bit);
+                  orderArray.put(docid, orderArray.get(docid) | bit);
                   minID = docid;
                   while (termDocs.next())
 		          {
                     df++;
                     docid = termDocs.doc();
-                    order.add(docid, order.get(docid) | bit);
-		          }
+                    orderArray.put(docid, orderArray.get(docid) | bit);
+                  }
 				  maxID = docid;
 		        }
 	            freqList.add(df);
@@ -276,7 +275,19 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 		
 		mterms.seal();
 
-		return new FacetDataCache(order,mterms,freqList.toIntArray(),minIDList.toIntArray(),maxIDList.toIntArray(),TermCountSize.large);
+        IntBuffer minIdsBuffer = ByteBuffer.allocateDirect(4 * minIDList.size()).asIntBuffer();
+        minIdsBuffer.put(minIDList.toIntArray());
+
+        IntBuffer maxIdsBuffer = ByteBuffer.allocateDirect(4 * maxIDList.size()).asIntBuffer();
+        maxIdsBuffer.put(maxIDList.toIntArray());
+
+        LazyBigIntArray freqs = new LazyBigIntArray(freqList.size());
+        for(int i = 0; i < freqs.size(); i++) {
+            freqs.add(i, freqList.get(i));
+        }
+
+
+        return new FacetDataCache(1+maxDoc, orderArray, mterms, freqs, minIdsBuffer, maxIdsBuffer, TermCountSize.large);
 	}
 	
 	private static class CompactMultiFacetDocComparatorSource extends DocComparatorSource{
@@ -294,8 +305,8 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 			return new DocComparator(){
 				@Override
 				public int compare(ScoreDoc doc1, ScoreDoc doc2) {
-					int encoded1=dataCache.orderArray.get(doc1.doc);
-					int encoded2=dataCache.orderArray.get(doc2.doc);
+					int encoded1=dataCache.getOrderArrayValue(doc1.doc);
+					int encoded2=dataCache.getOrderArrayValue(doc2.doc);
 					return encoded1-encoded2;
 				}
 
@@ -310,30 +321,30 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 	
 	public BoboDocScorer getDocScorer(BoboIndexReader reader,FacetTermScoringFunctionFactory scoringFunctionFactory,Map<String,Float> boostMap){
 		FacetDataCache dataCache = getFacetData(reader);
-		float[] boostList = BoboDocScorer.buildBoostList(dataCache.valArray, boostMap);
+		float[] boostList = BoboDocScorer.buildBoostList(dataCache, boostMap);
 		return new CompactMultiValueDocScorer(dataCache,scoringFunctionFactory,boostList);
 	}
 	
 	private static final class CompactMultiValueDocScorer extends BoboDocScorer{
 		private final FacetDataCache _dataCache;
 		CompactMultiValueDocScorer(FacetDataCache dataCache,FacetTermScoringFunctionFactory scoreFunctionFactory,float[] boostList){
-			super(scoreFunctionFactory.getFacetTermScoringFunction(dataCache.valArray.size(), dataCache.orderArray.size()),boostList);
+			super(scoreFunctionFactory.getFacetTermScoringFunction(dataCache.getValArraySize(), dataCache.getOrderArraySize()),boostList);
 			_dataCache = dataCache;
 		}
 		
 		@Override
 		public Explanation explain(int doc){
-			int encoded=_dataCache.orderArray.get(doc);
+			int encoded=_dataCache.getOrderArrayValue(doc);
 			
 			int count=1;
-			FloatList scoreList = new FloatArrayList(_dataCache.valArray.size());
+			FloatList scoreList = new FloatArrayList(_dataCache.getValArraySize());
 			ArrayList<Explanation> explList = new ArrayList<Explanation>(scoreList.size());
 			while(encoded != 0)
 			{
 				if ((encoded & 0x00000001) != 0x0){
 					int idx = count -1;
-					scoreList.add(_function.score(_dataCache.freqs[idx], _boostList[idx]));
-					explList.add(_function.explain(_dataCache.freqs[idx], _boostList[idx]));
+					scoreList.add(_function.score(_dataCache.getFreq(idx), _boostList[idx]));
+					explList.add(_function.explain(_dataCache.getFreq(idx), _boostList[idx]));
 				}
 				count++;
 				encoded >>>= 1;
@@ -348,7 +359,7 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 		@Override
 		public final float score(int docid) {
 			_function.clearScores();
-			int encoded=_dataCache.orderArray.get(docid);
+			int encoded=_dataCache.getOrderArrayValue(docid);
 			
 			int count=1;
 			
@@ -356,7 +367,7 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 			{
 				int idx = count -1;
 				if ((encoded & 0x00000001) != 0x0){	
-					_function.scoreAndCollect(_dataCache.freqs[idx], _boostList[idx]);
+					_function.scoreAndCollect(_dataCache.getFreq(idx), _boostList[idx]);
 				}
 				count++;
 				encoded >>>= 1;
@@ -368,7 +379,6 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 
 	private static final class CompactMultiValueFacetCountCollector extends DefaultFacetCountCollector
 	{
-	  private final BigSegmentedArray _array;
 	  private final int[] _combinationCount = new int[16 * 8];
 	  private int _noValCount = 0;
 	  private boolean _aggregated = false;
@@ -379,21 +389,20 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 	                                       FacetSpec ospec)
 	                                       {
 	    super(name,dataCache,docBase,sel,ospec);
-	    _array = _dataCache.orderArray;
 	  }
 	  
 
 	  @Override
 	  public final void collectAll()
 	  {
-	    _count = BigIntArray.fromArray(_dataCache.freqs);
+	    _count = _dataCache.getFreqs();
 	    _aggregated = true;
 	  }
 	  
 	  @Override
       public final void collect(int docid)
 	  {
-	    int encoded = _array.get(docid);
+	    int encoded = _dataCache.getOrderArrayValue(docid);
 	    if(encoded == 0)
 	    {
 	      _noValCount++;

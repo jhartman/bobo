@@ -10,7 +10,7 @@ import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.docidset.EmptyDocIdSet;
 import com.browseengine.bobo.docidset.RandomAccessDocIdSet;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.MultiValueFacetDataCache;
 import com.browseengine.bobo.facets.filter.FacetOrFilter.FacetOrDocIdSetIterator;
 import com.browseengine.bobo.util.BigNestedIntArray;
@@ -48,7 +48,7 @@ public class MultiValueORFacetFilter extends RandomAccessFilter
     int accumFreq=0;
     for(int idx : idxes)
     {
-      accumFreq +=dataCache.freqs[idx];
+      accumFreq +=dataCache.getFreq(idx);
     }
     int total = reader.maxDoc();
     selectivity = (double)accumFreq/(double)total;
@@ -61,17 +61,15 @@ public class MultiValueORFacetFilter extends RandomAccessFilter
   
   public final static class MultiValueOrFacetDocIdSetIterator extends FacetOrDocIdSetIterator
   {
-      private final BigNestedIntArray _nestedArray;
-      public MultiValueOrFacetDocIdSetIterator(MultiValueFacetDataCache dataCache, OpenBitSet bs) 
+      public MultiValueOrFacetDocIdSetIterator(MultiValueFacetDataCache dataCache, OpenBitSet bs)
       {
         super(dataCache,bs);
-        _nestedArray = dataCache._nestedArray;
       }
       
       @Override
       final public int nextDoc() throws IOException
       {
-        return (_doc = (_doc < _maxID ? _nestedArray.findValues(_bitset, (_doc + 1), _maxID) : NO_MORE_DOCS));
+        return (_doc = (_doc < _maxID ? _dataCache.findValues(_bitset, (_doc + 1), _maxID) : NO_MORE_DOCS));
       }
 
       @Override
@@ -79,7 +77,7 @@ public class MultiValueORFacetFilter extends RandomAccessFilter
       {
         if (_doc < id)
         {
-          return (_doc = (id <= _maxID ? _nestedArray.findValues(_bitset, id, _maxID) : NO_MORE_DOCS));
+          return (_doc = (id <= _maxID ? _dataCache.findValues(_bitset, id, _maxID) : NO_MORE_DOCS));
         }
         return nextDoc();
       }
@@ -90,8 +88,7 @@ public class MultiValueORFacetFilter extends RandomAccessFilter
   {
     final MultiValueFacetDataCache dataCache = (MultiValueFacetDataCache)_facetHandler.getFacetData(reader);
     final int[] index = _valueConverter.convert(dataCache, _vals);
-    final BigNestedIntArray nestedArray = dataCache._nestedArray;
-    final OpenBitSet bitset = new OpenBitSet(dataCache.valArray.size());
+    final OpenBitSet bitset = new OpenBitSet(dataCache.getValArraySize());
   
     for (int i : index)
     {
@@ -101,7 +98,7 @@ public class MultiValueORFacetFilter extends RandomAccessFilter
     if (_takeCompliment)
     {
       // flip the bits
-      int size = dataCache.valArray.size();
+      int size = dataCache.getValArraySize();
       for (int i=0;i<size;++i){
         bitset.fastFlip(i);
       }
@@ -140,7 +137,7 @@ public class MultiValueORFacetFilter extends RandomAccessFilter
         @Override
         final public boolean get(int docId)
         {
-          return nestedArray.contains(docId,bitset);
+          return dataCache.contains(docId,bitset);
         }
       };
     }

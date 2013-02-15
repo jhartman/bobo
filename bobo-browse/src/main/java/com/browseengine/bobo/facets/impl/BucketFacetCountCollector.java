@@ -5,15 +5,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.lucene.util.BitVector;
 
 import com.browseengine.bobo.api.BrowseFacet;
 import com.browseengine.bobo.api.FacetIterator;
 import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.FacetCountCollector;
-import com.browseengine.bobo.facets.data.FacetDataCache;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.TermStringList;
-import com.browseengine.bobo.facets.data.TermValueList;
 import com.browseengine.bobo.util.BigSegmentedArray;
 import com.browseengine.bobo.util.LazyBigIntArray;
 
@@ -51,8 +51,7 @@ public class BucketFacetCountCollector implements FacetCountCollector
   private BigSegmentedArray getCollapsedCounts(){
 	if (_collapsedCounts==null){
 		_collapsedCounts = new LazyBigIntArray(_bucketValues.size());
-		FacetDataCache dataCache = _subCollector._dataCache;
-		TermValueList<?> subList = dataCache.valArray; 
+        FacetDataCache dataCache = _subCollector._dataCache;
 		BigSegmentedArray subcounts = _subCollector._count;
 		BitVector indexSet = new BitVector(subcounts.size());
 		int c = 0;
@@ -62,13 +61,13 @@ public class BucketFacetCountCollector implements FacetCountCollector
 				String[] subVals = _predefinedBuckets.get(val);
 				int count = 0;
 				for (String subVal : subVals){
-					int index = subList.indexOf(subVal);
+					int index = dataCache.getDocId(subVal);
 					if (index>0){
 						int subcount = subcounts.get(index);
 						count+=subcount;
 						if (!indexSet.get(index)){
 							indexSet.set(index);
-							c+=dataCache.freqs[index];
+							c+=dataCache.getFreq(index);
 						}
 					}
 				}

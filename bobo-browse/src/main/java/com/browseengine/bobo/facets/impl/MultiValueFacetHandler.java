@@ -123,7 +123,7 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
   {
 	  MultiValueFacetDataCache dataCache = getFacetData(reader);
 	  if (dataCache!=null){
-      return dataCache._nestedArray.getTranslatedData(id, dataCache.valArray);
+          return dataCache.getTranslatedData(id);
 	  }
 	  return new String[0];
   }
@@ -133,7 +133,7 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
 
 	MultiValueFacetDataCache dataCache = getFacetData(reader);
 	  if (dataCache!=null){
-      return dataCache._nestedArray.getRawData(id, dataCache.valArray);
+          return dataCache.getRawData(id);
 	  }
 	  return new String[0];
   }
@@ -162,18 +162,10 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
   @Override
   public MultiValueFacetDataCache load(BoboIndexReader reader, WorkArea workArea) throws IOException
   {
-	MultiValueFacetDataCache dataCache = new MultiValueFacetDataCache();
-    
-	dataCache.setMaxItems(_maxItems);
+	MultiValueFacetDataCache dataCache = (_sizePayloadTerm == null)
+       ? MultiValueFacetDataCache.load(_indexFieldName, reader, _termListFactory, workArea,  _maxItems)
+       : MultiValueFacetDataCache.load(_indexFieldName, reader, _termListFactory, _sizePayloadTerm,  _maxItems);
 
-    if(_sizePayloadTerm == null)
-    {
-    	dataCache.load(_indexFieldName, reader, _termListFactory, workArea);
-    }
-    else
-    {
-    	dataCache.load(_indexFieldName, reader, _termListFactory, _sizePayloadTerm);
-    }
     return dataCache;
   }
 
@@ -240,32 +232,30 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
   
   public BoboDocScorer getDocScorer(BoboIndexReader reader,FacetTermScoringFunctionFactory scoringFunctionFactory,Map<String,Float> boostMap){
 	    MultiValueFacetDataCache dataCache = getFacetData(reader);
-		float[] boostList = BoboDocScorer.buildBoostList(dataCache.valArray, boostMap);
+		float[] boostList = BoboDocScorer.buildBoostList(dataCache, boostMap);
 		return new MultiValueDocScorer(dataCache,scoringFunctionFactory,boostList);
   }
 
   public static final class MultiValueDocScorer extends BoboDocScorer{
 		private final MultiValueFacetDataCache _dataCache;
-		private final BigNestedIntArray _array;
-		
+
 		public MultiValueDocScorer(MultiValueFacetDataCache dataCache,FacetTermScoringFunctionFactory scoreFunctionFactory,float[] boostList){
-			super(scoreFunctionFactory.getFacetTermScoringFunction(dataCache.valArray.size(), dataCache._nestedArray.size()),boostList);
+			super(scoreFunctionFactory.getFacetTermScoringFunction(dataCache.getValArraySize(), dataCache.getNestedArraySize()),boostList);
 			_dataCache = dataCache;
-			_array = _dataCache._nestedArray;
 		}
 		
 		@Override
 		public Explanation explain(int doc){
-			String[] vals = _array.getTranslatedData(doc, _dataCache.valArray);
-			
-			FloatList scoreList = new FloatArrayList(_dataCache.valArray.size());
+			String[] vals = _dataCache.getTranslatedData(doc);
+
+			FloatList scoreList = new FloatArrayList(_dataCache.getValArraySize());
 			ArrayList<Explanation> explList = new ArrayList<Explanation>(scoreList.size());
 			for (String val : vals)
 			{
-				int idx = _dataCache.valArray.indexOf(val);
+				int idx = _dataCache.getDocId(val);
 				if (idx>=0){
-				  scoreList.add(_function.score(_dataCache.freqs[idx], _boostList[idx]));
-				  explList.add(_function.explain(_dataCache.freqs[idx], _boostList[idx]));
+				  scoreList.add(_function.score(_dataCache.getFreq(idx), _boostList[idx]));
+				  explList.add(_function.explain(_dataCache.getFreq(idx), _boostList[idx]));
 				}
 			}
 			Explanation topLevel = _function.explain(scoreList.toFloatArray());
@@ -277,14 +267,13 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
 		
 		@Override
 		public final float score(int docid) {
-			return _array.getScores(docid, _dataCache.freqs, _boostList, _function);
+			return _dataCache.getScores(docid, _dataCache.getFreqs(), _boostList, _function);
 		}
 		
 	}
 
   public static final class MultiValueFacetCountCollector extends DefaultFacetCountCollector
   {
-    public final BigNestedIntArray _array;
     MultiValueFacetCountCollector(String name,
     							  MultiValueFacetDataCache dataCache,
     							  int docBase,
@@ -292,19 +281,18 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
                                   FacetSpec ospec)
                                   {
       super(name,dataCache,docBase,sel,ospec);
-      _array = dataCache._nestedArray;
     }
 
     @Override
     public final void collect(int docid) 
     {
-      _array.countNoReturn(docid, _count);
+      ((MultiValueFacetDataCache)_dataCache).countNoReturn(docid, _count);
     }
 
     @Override
     public final void collectAll()
     {
-      _count = BigIntArray.fromArray(_dataCache.freqs);
+      _count = _dataCache.getFreqs();
     }
   }
 }

@@ -46,7 +46,7 @@ public class MultiRangeFacetHandler extends RangeFacetHandler {
   public String[] getFieldValues(BoboIndexReader reader, int id) {
     MultiValueFacetDataCache dataCache = getFacetData(reader);
     if (dataCache != null) {
-      return dataCache._nestedArray.getTranslatedData(id, dataCache.valArray);
+      return dataCache.getTranslatedData(id);
     }
     return new String[0];
   }
@@ -56,7 +56,7 @@ public class MultiRangeFacetHandler extends RangeFacetHandler {
 
     MultiValueFacetDataCache dataCache = getFacetData(reader);
     if (dataCache != null) {
-      return dataCache._nestedArray.getRawData(id, dataCache.valArray);
+      return dataCache.getRawData(id);
     }
     return new String[0];
   }
@@ -76,11 +76,10 @@ public class MultiRangeFacetHandler extends RangeFacetHandler {
 
       @Override
       public FacetCountCollector getFacetCountCollector(BoboIndexReader reader, int docBase) {
-        MultiValueFacetDataCache dataCache = getFacetData(reader);
-        final BigNestedIntArray _nestedArray = dataCache._nestedArray;
+        final MultiValueFacetDataCache dataCache = getFacetData(reader);
         return new RangeFacetCountCollector(_name, dataCache, docBase, ospec, _predefinedRanges) {
           public void collect(int docid) {
-            _nestedArray.countNoReturn(docid, _count);
+            dataCache.countNoReturn(docid, _count);
           }
         };
       }
@@ -91,7 +90,7 @@ public class MultiRangeFacetHandler extends RangeFacetHandler {
   public BoboDocScorer getDocScorer(BoboIndexReader reader, FacetTermScoringFunctionFactory scoringFunctionFactory,
       Map<String, Float> boostMap) {
     MultiValueFacetDataCache dataCache = getFacetData(reader);
-    float[] boostList = BoboDocScorer.buildBoostList(dataCache.valArray, boostMap);
+    float[] boostList = BoboDocScorer.buildBoostList(dataCache, boostMap);
     return new MultiValueDocScorer(dataCache, scoringFunctionFactory, boostList);
   }
 
@@ -102,13 +101,10 @@ public class MultiRangeFacetHandler extends RangeFacetHandler {
 
   @Override
   public MultiValueFacetDataCache load(BoboIndexReader reader, WorkArea workArea) throws IOException {
-    MultiValueFacetDataCache dataCache = new MultiValueFacetDataCache();
-    dataCache.setMaxItems(maxItems);
-    if (sizePayloadTerm == null) {
-      dataCache.load(_indexFieldName, reader, _termListFactory, workArea);
-    } else {
-      dataCache.load(_indexFieldName, reader, _termListFactory, sizePayloadTerm);
-    }
+    MultiValueFacetDataCache dataCache = (sizePayloadTerm == null)
+        ? MultiValueFacetDataCache.load(_indexFieldName, reader, _termListFactory, workArea, maxItems)
+        : MultiValueFacetDataCache.load(_indexFieldName, reader, _termListFactory, sizePayloadTerm, maxItems);
+
     return dataCache;
   }
 

@@ -213,7 +213,7 @@ public class SimpleGroupbyFacetHandler extends FacetHandler<FacetDataNone> {
       int segsize=_countlength;
       for (DefaultFacetCountCollector subcollector : _subcollectors){
         segsize = segsize / _lens[i++];
-        idx+=(subcollector._dataCache.orderArray.get(docid) * segsize);
+        idx+=(subcollector._dataCache.getOrderArrayValue(docid) * segsize);
       }
       _count.add(idx, _count.get(idx) + 1);
     }
@@ -243,8 +243,8 @@ public class SimpleGroupbyFacetHandler extends FacetHandler<FacetDataNone> {
         if (i>0){
           buf.append(_sep);
         }
-        int index=_subcollectors[i]._dataCache.valArray.indexOf(vals[i]);
-        String facetName = _subcollectors[i]._dataCache.valArray.get(index);
+        int index=_subcollectors[i]._dataCache.getDocId(vals[i]);
+        String facetName = _subcollectors[i]._dataCache.getString(index);
         buf.append(facetName);
 
         segLen /= _subcollectors[i]._countlength;
@@ -269,7 +269,7 @@ public class SimpleGroupbyFacetHandler extends FacetHandler<FacetDataNone> {
 
       for (int i=0; i<vals.length; ++i)
       {
-        int index = _subcollectors[i]._dataCache.valArray.indexOf(vals[i]);
+        int index = _subcollectors[i]._dataCache.getDocId(vals[i]);
         segLen /= _subcollectors[i]._countlength;
         startIdx += index * segLen;
       }
@@ -292,7 +292,7 @@ public class SimpleGroupbyFacetHandler extends FacetHandler<FacetDataNone> {
         int adjusted=idx*len;
 
         int bucket = adjusted/_countlength;
-        buf.append(_subcollectors[i]._dataCache.valArray.get(bucket));
+        buf.append(_subcollectors[i]._dataCache.getString(bucket));
         idx=adjusted%_countlength;
         i++;
       }
@@ -305,7 +305,7 @@ public class SimpleGroupbyFacetHandler extends FacetHandler<FacetDataNone> {
       for (int len : _lens){
         int adjusted=idx*len;
         int bucket = adjusted/_countlength;
-        retVal[i++]=_subcollectors[i]._dataCache.valArray.getRawValue(bucket);
+        retVal[i++]=_subcollectors[i]._dataCache.getRawValue(bucket);
         idx=adjusted%_countlength;
       }
       return retVal;

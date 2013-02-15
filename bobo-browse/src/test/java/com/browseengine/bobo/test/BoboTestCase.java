@@ -49,6 +49,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import com.browseengine.bobo.facets.data.*;
 import junit.framework.TestCase;
 
 import org.apache.log4j.Logger;
@@ -99,10 +100,6 @@ import com.browseengine.bobo.api.FieldValueAccessor;
 import com.browseengine.bobo.api.MultiBoboBrowser;
 import com.browseengine.bobo.facets.FacetHandler;
 import com.browseengine.bobo.facets.FacetHandler.TermCountSize;
-import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.facets.data.FacetDataFetcher;
-import com.browseengine.bobo.facets.data.PredefinedTermListFactory;
-import com.browseengine.bobo.facets.data.TermListFactory;
 import com.browseengine.bobo.facets.impl.BucketFacetHandler;
 import com.browseengine.bobo.facets.impl.ComboFacetHandler;
 import com.browseengine.bobo.facets.impl.CompactMultiValueFacetHandler;
@@ -128,7 +125,6 @@ import com.browseengine.bobo.query.ScoreAdjusterQuery;
 import com.browseengine.bobo.query.scoring.FacetTermQuery;
 import com.browseengine.bobo.sort.DocComparator;
 import com.browseengine.bobo.sort.DocComparatorSource;
-import com.browseengine.bobo.util.BigIntArray;
 import com.browseengine.bobo.util.BigSegmentedArray;
 import com.browseengine.bobo.util.IntBoundedPriorityQueue.IntComparator;
 
@@ -511,7 +507,7 @@ public class BoboTestCase extends TestCase {
         if (sourceCache == null)
           return null;
 
-        return sourceCache.valArray.getRawValue(sourceCache.orderArray.get(doc));
+        return sourceCache.getRawValue(sourceCache.getOrderArrayValue(doc));
       }
 
       public void cleanup(BoboIndexReader reader)
@@ -2933,13 +2929,13 @@ public class BoboTestCase extends TestCase {
     
 	  }
 	 
-	public static void main(String[] args)throws Exception {
-		//BoboTestCase test=new BoboTestCase("testSimpleGroupbyFacetHandler");
-	  BoboTestCase test=new BoboTestCase("testFacetRangeQuery");
-		test.setUp();
-		test.testFacetRangeQuery();
-		test.tearDown();
-	}
+//	public static void main(String[] args)throws Exception {
+//		//BoboTestCase test=new BoboTestCase("testSimpleGroupbyFacetHandler");
+//	  BoboTestCase test=new BoboTestCase("testFacetRangeQuery");
+//		test.setUp();
+//		test.testFacetRangeQuery();
+//		test.tearDown();
+//	}
 
   public void testVirtual() throws Exception{
     BrowseRequest br=new BrowseRequest();

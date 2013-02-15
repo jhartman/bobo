@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import org.apache.log4j.Logger;
 
 import com.browseengine.bobo.api.BrowseFacet;
@@ -17,8 +18,7 @@ import com.browseengine.bobo.api.FacetIterator;
 import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.api.FacetSpec.FacetSortSpec;
 import com.browseengine.bobo.facets.FacetCountCollector;
-import com.browseengine.bobo.facets.data.FacetDataCache;
-import com.browseengine.bobo.util.BigIntArray;
+//import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.util.BigSegmentedArray;
 import com.browseengine.bobo.util.BoundedPriorityQueue;
 import com.browseengine.bobo.util.LazyBigIntArray;
@@ -32,7 +32,6 @@ public class PathFacetCountCollector implements FacetCountCollector
 	protected BigSegmentedArray _count;
 	private final String _name;
 	private final String _sep;
-	private final BigSegmentedArray _orderArray;
 	protected final FacetDataCache _dataCache;
 	private final ComparatorFactory _comparatorFactory;
 	private final int _minHitCount;
@@ -43,7 +42,7 @@ public class PathFacetCountCollector implements FacetCountCollector
 	private int _patStart;
 	private int _patEnd;
 	
-	PathFacetCountCollector(String name,String sep,BrowseSelection sel,FacetSpec ospec,FacetDataCache dataCache)
+	PathFacetCountCollector(String name,String sep,BrowseSelection sel,FacetSpec ospec, FacetDataCache dataCache)
 	{
 		_sel = sel;
 		_ospec=ospec;
@@ -51,9 +50,8 @@ public class PathFacetCountCollector implements FacetCountCollector
         _dataCache = dataCache;
         _sep = sep;
         _sepArray = sep.toCharArray();
-		_count = new LazyBigIntArray(_dataCache.freqs.length);
-		log.info(name +": " + _count.size());
-		_orderArray = _dataCache.orderArray;
+        _count = new LazyBigIntArray(_dataCache.getFreqSize());
+        log.info(name +": " + _count.size());
 		_minHitCount = ospec.getMinHitCount();
 		_maxCount = ospec.getMaxCount();
 		if (_maxCount<1){
@@ -84,13 +82,13 @@ public class PathFacetCountCollector implements FacetCountCollector
 	}
 	
 	public void collect(int docid) {
-	  int i = _orderArray.get(docid);
+	  int i = _dataCache.getOrderArrayValue(docid);
 	  _count.add(i, _count.get(i) + 1);
 	}
 	
 	public void collectAll()
 	{
-	    _count = BigIntArray.fromArray(_dataCache.freqs); 
+	    _count = _dataCache.getFreqs();
 	}
 	
 	public BrowseFacet getFacet(String value)
@@ -202,7 +200,7 @@ public class PathFacetCountCollector implements FacetCountCollector
 		
 		int index=0;
 		if (selectedPath!=null && selectedPath.length()>0){		
-			index=_dataCache.valArray.indexOf(selectedPath);
+			index=_dataCache.getDocId(selectedPath);
 			if (index<0)
 			{
 				index=-(index + 1);
@@ -213,7 +211,7 @@ public class PathFacetCountCollector implements FacetCountCollector
 		StringBuffer buf = new StringBuffer();
 		for (int i=index;i<_count.size();++i){
 			if (_count.get(i) >= minCount){
-				String path=_dataCache.valArray.get(i);
+				String path=_dataCache.getString(i);
 				//if (path==null || path.equals(selectedPath)) continue;						
 				
 				int subCount=_count.get(i);

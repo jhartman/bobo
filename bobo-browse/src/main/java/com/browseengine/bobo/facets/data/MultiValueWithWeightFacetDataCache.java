@@ -1,8 +1,13 @@
 package com.browseengine.bobo.facets.data;
 
+import com.browseengine.bobo.facets.FacetHandler;
+import com.browseengine.bobo.util.*;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.util.Arrays;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.index.IndexReader;
@@ -18,22 +23,39 @@ import com.browseengine.bobo.api.BoboIndexReader.WorkArea;
 import com.browseengine.bobo.facets.range.MultiDataCacheBuilder;
 import com.browseengine.bobo.sort.DocComparator;
 import com.browseengine.bobo.sort.DocComparatorSource;
-import com.browseengine.bobo.util.BigIntBuffer;
-import com.browseengine.bobo.util.BigNestedIntArray;
 import com.browseengine.bobo.util.BigNestedIntArray.BufferedLoader;
 import com.browseengine.bobo.util.BigNestedIntArray.Loader;
-import com.browseengine.bobo.util.StringArrayComparator;
 
 public class MultiValueWithWeightFacetDataCache<T> extends MultiValueFacetDataCache<T>
 {
   private static final long serialVersionUID = 1L;
 
-  public final BigNestedIntArray _weightArray;
+  private final NioMatrix _weightArray;
 
-  public MultiValueWithWeightFacetDataCache()
-  {
-    super();
-    _weightArray = new BigNestedIntArray();
+    public MultiValueWithWeightFacetDataCache(int length, NioMatrix nestedArray,
+                                                    NioMatrix weightArray,
+                                                  TermValueList<T> valArray,
+                                                  LazyBigIntArray freqs,
+                                                  IntBuffer minIdsBuffer,
+                                                  IntBuffer maxIdsBuffer, FacetHandler.TermCountSize large) {
+        super(length, nestedArray, valArray, freqs, minIdsBuffer, maxIdsBuffer, large);
+        _weightArray = weightArray;
+    }
+
+  public int getWeight(int docId, int column) {
+    return _weightArray.get(docId, column);
+  }
+
+  public int getWeightForValue(int docId, int value, int defaultIfNotFound) {
+      if(docId >= 0 && docId < getNestedArraySize()) {
+          int column = binarySearch(docId, value);
+          if(column >= 0)
+            return getWeight(docId, column);
+          else
+            return defaultIfNotFound;
+      } else {
+          return defaultIfNotFound;
+      }
   }
 
   /**
@@ -44,32 +66,38 @@ public class MultiValueWithWeightFacetDataCache<T> extends MultiValueFacetDataCa
    * @param workArea
    * @throws IOException
    */
-  public void load(String fieldName,
+  public static <T> MultiValueWithWeightFacetDataCache<T> load(String fieldName,
                    IndexReader reader,
                    TermListFactory<T> listFactory,
-                   WorkArea workArea) throws IOException
+                   WorkArea workArea,
+                   int maxItems) throws IOException
   {
     long t0 = System.currentTimeMillis();
     int maxdoc = reader.maxDoc();
-    BufferedLoader loader = getBufferedLoader(maxdoc, workArea);
-    BufferedLoader weightLoader = getBufferedLoader(maxdoc, null);
+
+//    BigNestedIntArray nestedArray = new BigNestedIntArray();
+//    nestedArray.setMaxItems(maxItems);
+
+      NioMatrix nestedArray = new NioMatrix(maxdoc + 1);
+
+      NioMatrix weightArray = new NioMatrix(maxdoc + 1);
 
     TermEnum tenum = null;
     TermDocs tdoc = null;
-    TermValueList<T> list = (listFactory == null ? (TermValueList<T>)new TermStringList() : listFactory.createTermList());
+    TermValueList<T> valArray = (listFactory == null ? (TermValueList<T>)new TermStringList() : listFactory.createTermList());
     IntArrayList minIDList = new IntArrayList();
     IntArrayList maxIDList = new IntArrayList();
     IntArrayList freqList = new IntArrayList();
     OpenBitSet bitset = new OpenBitSet(maxdoc + 1);
-    int negativeValueCount = getNegativeValueCount(reader, fieldName.intern()); 
+    int negativeValueCount = getNegativeValueCount(reader, fieldName.intern());
     int t = 0; // current term number
-    list.add(null);
+    valArray.add(null);
     minIDList.add(-1);
     maxIDList.add(-1);
     freqList.add(0);
     t++;
-    
-    _overflow = false;
+
+    boolean overflow = false;
 
     String pre = null;
 
@@ -110,7 +138,7 @@ public class MultiValueWithWeightFacetDataCache<T> extends MultiValueFacetDataCa
                 maxIDList.add(maxID);
               }
 
-              list.add(val);
+              valArray.add(val);
 
               df = 0;
               minID = -1;
@@ -125,8 +153,8 @@ public class MultiValueWithWeightFacetDataCache<T> extends MultiValueFacetDataCa
               df++;
               int docid = tdoc.doc();
 
-              if(!loader.add(docid, valId)) logOverflow(fieldName);
-              else weightLoader.add(docid, weight);
+              nestedArray.add(docid, valId);
+              weightArray.add(docid, weight);
 
               if (docid < minID) minID = docid;
               bitset.fastSet(docid);
@@ -134,9 +162,9 @@ public class MultiValueWithWeightFacetDataCache<T> extends MultiValueFacetDataCa
               {
                 df++;
                 docid = tdoc.doc();
-                
-                if(!loader.add(docid, valId)) logOverflow(fieldName);
-                else weightLoader.add(docid, weight);
+
+                nestedArray.add(docid, valId);
+                weightArray.add(docid, weight);
 
                 bitset.fastSet(docid);
               }
@@ -173,45 +201,44 @@ public class MultiValueWithWeightFacetDataCache<T> extends MultiValueFacetDataCa
       }
     }
 
-    list.seal();
-
-    try
-    {
-      _nestedArray.load(maxdoc + 1, loader);
-      _weightArray.load(maxdoc + 1, weightLoader);
-    }
-    catch (IOException e)
-    {
-      throw e;
-    }
-    catch (Exception e)
-    {
-      throw new RuntimeException("failed to load due to " + e.toString(), e);
-    }
-    
-    this.valArray = list;
-    this.freqs = freqList.toIntArray();
-    this.minIDs = minIDList.toIntArray();
-    this.maxIDs = maxIDList.toIntArray();
+    valArray.seal();
 
     int doc = 0;
-    while (doc <= maxdoc && !_nestedArray.contains(doc, 0, true))
+    while (doc <= maxdoc && !contains(nestedArray, doc, 0, true))
     {
       ++doc;
     }
     if (doc <= maxdoc)
     {
-      this.minIDs[0] = doc;
+      minIDList.set(0, doc);
       doc = maxdoc;
-      while (doc > 0 && !_nestedArray.contains(doc, 0, true))
+      while (doc > 0 && !contains(nestedArray, doc, 0, true))
       {
         --doc;
       }
       if (doc > 0)
       {
-        this.maxIDs[0] = doc;
+        maxIDList.set(0, doc);
       }
     }
-    this.freqs[0] = maxdoc + 1 - (int) bitset.cardinality();   
+    freqList.set(0, maxdoc + 1 - (int) bitset.cardinality());
+
+    IntBuffer minIdsBuffer = ByteBuffer.allocateDirect(4 * minIDList.size()).asIntBuffer();
+    minIdsBuffer.put(minIDList.toIntArray());
+
+    IntBuffer maxIdsBuffer = ByteBuffer.allocateDirect(4 * maxIDList.size()).asIntBuffer();
+    maxIdsBuffer.put(maxIDList.toIntArray());
+
+//    IntBuffer freqListBuffer = ByteBuffer.allocateDirect(4 * freqList.size()).asIntBuffer();
+//    freqListBuffer.put(freqList.toIntArray());
+
+      LazyBigIntArray freqs = new LazyBigIntArray(freqList.size());
+      for(int i = 0; i < freqs.size(); i++) {
+          freqs.add(i, freqList.get(i));
+      }
+
+      nestedArray.compact();
+
+      return new MultiValueWithWeightFacetDataCache<T>(1+maxdoc, nestedArray, weightArray, valArray, freqs, minIdsBuffer, maxIdsBuffer, FacetHandler.TermCountSize.large);
   }
 }
